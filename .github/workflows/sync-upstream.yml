@@ -1,0 +1,37 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # This will run the workflow every hour
+  workflow_dispatch:  # Allows manual triggering of the workflow
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout upstream repository
+        uses: actions/checkout@v2
+        with:
+          repository: bia-pain-bache/BPB-Worker-Panel  # The upstream repository
+          path: upstream  # Path to checkout the upstream repo
+
+      - name: Checkout fork repository
+        uses: actions/checkout@v2
+        with:
+          path: fork  # Path to checkout your forked repo
+          persist-credentials: false  # Prevents using the default GitHub token
+
+      - name: Sync upstream changes
+        run: |
+          cd fork
+          git remote add upstream https://github.com/bia-pain-bache/BPB-Worker-Panel
+          git fetch upstream
+          git checkout main  # Change this if your default branch is different
+          git merge upstream/main  # Merge changes from upstream
+          git push origin main  # Push changes to your fork
+
+      - name: Clean up
+        run: |
+          rm -rf upstream
+          rm -rf fork
