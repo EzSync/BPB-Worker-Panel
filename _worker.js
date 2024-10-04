@@ -19,7 +19,7 @@ let trojanPassword = `bpb-trojan`;
 // https://emn178.github.io/online-tools/sha224.html
 // https://www.atatus.com/tools/sha224-to-hash
 let hashPassword = 'b5d0a5f7ff7aac227bc68b55ae713131ffdf605ca0da52cce182d513';
-let panelVersion = '2.6.4';
+let panelVersion = '2.6.1';
 
 if (!isValidUUID(userID)) throw new Error(`Invalid UUID: ${userID}`);
 if (!isValidSHA224(hashPassword)) throw new Error(`Invalid Hash password: ${hashPassword}`);
@@ -1207,43 +1207,43 @@ async function updateDataset (env, newSettings, resetSettings) {
 
     const chainProxy = newSettings?.get('outProxy');
     const proxySettings = {
-        remoteDNS: newSettings ? newSettings.get('remoteDNS') : currentSettings?.hasOwnProperty('remoteDNS') ? currentSettings.remoteDNS : 'https://8.8.8.8/dns-query',
-        localDNS: newSettings ? newSettings.get('localDNS') : currentSettings?.hasOwnProperty('localDNS') ? currentSettings.localDNS : '8.8.8.8',
-        lengthMin: newSettings ? newSettings.get('fragmentLengthMin') : currentSettings?.hasOwnProperty('lengthMin') ? currentSettings.lengthMin : '100',
-        lengthMax: newSettings ? newSettings.get('fragmentLengthMax') : currentSettings?.hasOwnProperty('lengthMax') ? currentSettings.lengthMax : '200',
-        intervalMin: newSettings ? newSettings.get('fragmentIntervalMin') : currentSettings?.hasOwnProperty('intervalMin') ? currentSettings.intervalMin : '1',
-        intervalMax: newSettings ? newSettings.get('fragmentIntervalMax') : currentSettings?.hasOwnProperty('intervalMax') ? currentSettings.intervalMax : '1',
-        fragmentPackets: newSettings ? newSettings.get('fragmentPackets') : currentSettings?.hasOwnProperty('fragmentPackets') ? currentSettings.fragmentPackets : 'tlshello',
-        blockAds: newSettings ? newSettings.get('block-ads') : currentSettings?.hasOwnProperty('blockAds') ? currentSettings.blockAds : false,
-        bypassIran: newSettings ? newSettings.get('bypass-iran') : currentSettings?.hasOwnProperty('bypassIran') ? currentSettings.bypassIran : false,
-        blockPorn: newSettings ? newSettings.get('block-porn') : currentSettings?.hasOwnProperty('blockPorn') ? currentSettings.blockPorn : false,
-        bypassLAN: newSettings ? newSettings.get('bypass-lan') : currentSettings?.hasOwnProperty('bypassLAN') ? currentSettings.bypassLAN : false,
-        bypassChina: newSettings ? newSettings.get('bypass-china') : currentSettings?.hasOwnProperty('bypassChina') ? currentSettings.bypassChina : false,
-        blockUDP443: newSettings ? newSettings.get('block-udp-443') : currentSettings?.hasOwnProperty('blockUDP443') ? currentSettings.blockUDP443 : false,
-        cleanIPs: newSettings ? newSettings.get('cleanIPs')?.replaceAll(' ', '') : currentSettings?.hasOwnProperty('cleanIPs') ? currentSettings.cleanIPs : '',
-        enableIPv6: newSettings ? newSettings.get('enableIPv6') : currentSettings?.hasOwnProperty('enableIPv6') ? currentSettings.enableIPv6 : true,
-        proxyIP: newSettings ? newSettings.get('proxyIP')?.trim() : currentSettings?.hasOwnProperty('proxyIP') ? currentSettings.proxyIP : '',
-        ports: newSettings ? newSettings.getAll('ports[]') : currentSettings?.hasOwnProperty('ports') ? currentSettings.ports : ['443'],
-        vlessConfigs: newSettings ? newSettings.get('vlessConfigs') : currentSettings?.hasOwnProperty('vlessConfigs') ? currentSettings.vlessConfigs : true,
-        trojanConfigs: newSettings ? newSettings.get('trojanConfigs') : currentSettings?.hasOwnProperty('trojanConfigs') ? currentSettings.trojanConfigs : false,
-        outProxy: newSettings ? chainProxy : currentSettings?.hasOwnProperty('outProxy') ? currentSettings.outProxy : '',
-        outProxyParams: chainProxy ? extractChainProxyParams(chainProxy) : currentSettings?.hasOwnProperty('outProxyParams') ? currentSettings.outProxyParams : '',
-        wowEndpoint: newSettings ? newSettings.get('wowEndpoint')?.replaceAll(' ', '') : currentSettings?.hasOwnProperty('wowEndpoint') ? currentSettings.wowEndpoint : 'engage.cloudflareclient.com:2408',
-        warpEndpoints: newSettings ? newSettings.get('warpEndpoints')?.replaceAll(' ', '') : currentSettings?.hasOwnProperty('warpEndpoints') ? currentSettings.warpEndpoints : 'engage.cloudflareclient.com:2408',
-        hiddifyNoiseMode: newSettings ? newSettings.get('hiddifyNoiseMode') : currentSettings?.hasOwnProperty('hiddifyNoiseMode') ? currentSettings.hiddifyNoiseMode : 'm4',
-        nikaNGNoiseMode: newSettings ? newSettings.get('nikaNGNoiseMode') : currentSettings?.hasOwnProperty('nikaNGNoiseMode') ? currentSettings.nikaNGNoiseMode : 'quic',
-        noiseCountMin: newSettings ? newSettings.get('noiseCountMin') : currentSettings?.hasOwnProperty('noiseCountMin') ? currentSettings.noiseCountMin : '10',
-        noiseCountMax: newSettings ? newSettings.get('noiseCountMax') : currentSettings?.hasOwnProperty('noiseCountMax') ? currentSettings.noiseCountMax : '15',
-        noiseSizeMin: newSettings ? newSettings.get('noiseSizeMin') : currentSettings?.hasOwnProperty('noiseSizeMin') ? currentSettings.noiseSizeMin : '5',
-        noiseSizeMax: newSettings ? newSettings.get('noiseSizeMax') : currentSettings?.hasOwnProperty('noiseSizeMax') ? currentSettings.noiseSizeMax : '10',
-        noiseDelayMin: newSettings ? newSettings.get('noiseDelayMin') : currentSettings?.hasOwnProperty('noiseDelayMin') ? currentSettings.noiseDelayMin : '1',
-        noiseDelayMax: newSettings ? newSettings.get('noiseDelayMax') : currentSettings?.hasOwnProperty('noiseDelayMax') ? currentSettings.noiseDelayMax : '1',
-        warpPlusLicense: newSettings ? newSettings.get('warpPlusLicense') : currentSettings?.hasOwnProperty('warpPlusLicense') ? currentSettings.warpPlusLicense : '',
-        customCdnAddrs: newSettings ? newSettings.get('customCdnAddrs')?.replaceAll(' ', '') : currentSettings?.hasOwnProperty('customCdnAddrs') ? currentSettings.customCdnAddrs : '',
-        customCdnHost: newSettings ? newSettings.get('customCdnHost')?.trim() : currentSettings?.hasOwnProperty('customCdnHost') ? currentSettings.customCdnHost : '',
-        customCdnSni: newSettings ? newSettings.get('customCdnSni')?.trim() : currentSettings?.hasOwnProperty('customCdnSni') ? currentSettings.customCdnSni : '',
-        bestVLESSTrojanInterval: newSettings ? newSettings.get('bestVLESSTrojanInterval') : currentSettings?.hasOwnProperty('bestVLESSTrojanInterval') ? currentSettings.bestVLESSTrojanInterval : '30',
-        bestWarpInterval: newSettings ? newSettings.get('bestWarpInterval') : currentSettings?.hasOwnProperty('bestWarpInterval') ? currentSettings.bestWarpInterval : '30',
+        remoteDNS: newSettings ? newSettings.get('remoteDNS') : currentSettings ? currentSettings.remoteDNS : 'https://dns.google/dns-query',
+        localDNS: newSettings ? newSettings.get('localDNS') : currentSettings ? currentSettings.localDNS : '8.8.8.8',
+        lengthMin: newSettings ? newSettings.get('fragmentLengthMin') : currentSettings ? currentSettings.lengthMin : '100',
+        lengthMax: newSettings ? newSettings.get('fragmentLengthMax') : currentSettings ? currentSettings.lengthMax : '200',
+        intervalMin: newSettings ? newSettings.get('fragmentIntervalMin') : currentSettings ? currentSettings.intervalMin : '1',
+        intervalMax: newSettings ? newSettings.get('fragmentIntervalMax') : currentSettings ? currentSettings.intervalMax : '1',
+        fragmentPackets: newSettings ? newSettings.get('fragmentPackets') : currentSettings ? currentSettings.fragmentPackets : 'tlshello',
+        blockAds: newSettings ? newSettings.get('block-ads') : currentSettings ? currentSettings.blockAds : false,
+        bypassIran: newSettings ? newSettings.get('bypass-iran') : currentSettings ? currentSettings.bypassIran : false,
+        blockPorn: newSettings ? newSettings.get('block-porn') : currentSettings ? currentSettings.blockPorn : false,
+        bypassLAN: newSettings ? newSettings.get('bypass-lan') : currentSettings ? currentSettings.bypassLAN : false,
+        bypassChina: newSettings ? newSettings.get('bypass-china') : currentSettings ? currentSettings.bypassChina : false,
+        blockUDP443: newSettings ? newSettings.get('block-udp-443') : currentSettings ? currentSettings.blockUDP443 : false,
+        cleanIPs: newSettings ? newSettings.get('cleanIPs')?.replaceAll(' ', '') : currentSettings ? currentSettings.cleanIPs : '',
+        enableIPv6: newSettings ? newSettings.get('enableIPv6') : currentSettings ? currentSettings.enableIPv6 : true,
+        proxyIP: newSettings ? newSettings.get('proxyIP')?.trim() : currentSettings ? currentSettings.proxyIP : '',
+        ports: newSettings ? newSettings.getAll('ports[]') : currentSettings ? currentSettings.ports : ['443'],
+        vlessConfigs: newSettings ? newSettings.get('vlessConfigs') : currentSettings ? currentSettings.vlessConfigs : true,
+        trojanConfigs: newSettings ? newSettings.get('trojanConfigs') : currentSettings ? currentSettings.trojanConfigs : false,
+        outProxy: newSettings ? chainProxy : currentSettings ? currentSettings.outProxy : '',
+        outProxyParams: chainProxy ? extractChainProxyParams(chainProxy) : currentSettings ? currentSettings.outProxyParams : '',
+        wowEndpoint: newSettings ? newSettings.get('wowEndpoint')?.replaceAll(' ', '') : currentSettings ? currentSettings.wowEndpoint : 'engage.cloudflareclient.com:2408',
+        warpEndpoints: newSettings ? newSettings.get('warpEndpoints')?.replaceAll(' ', '') : currentSettings ? currentSettings.warpEndpoints : 'engage.cloudflareclient.com:2408',
+        hiddifyNoiseMode: newSettings ? newSettings.get('hiddifyNoiseMode') : currentSettings ? currentSettings.hiddifyNoiseMode : 'm4',
+        nikaNGNoiseMode: newSettings ? newSettings.get('nikaNGNoiseMode') : currentSettings ? currentSettings.nikaNGNoiseMode : 'quic',
+        noiseCountMin: newSettings ? newSettings.get('noiseCountMin') : currentSettings ? currentSettings.noiseCountMin : '10',
+        noiseCountMax: newSettings ? newSettings.get('noiseCountMax') : currentSettings ? currentSettings.noiseCountMax : '15',
+        noiseSizeMin: newSettings ? newSettings.get('noiseSizeMin') : currentSettings ? currentSettings.noiseSizeMin : '5',
+        noiseSizeMax: newSettings ? newSettings.get('noiseSizeMax') : currentSettings ? currentSettings.noiseSizeMax : '10',
+        noiseDelayMin: newSettings ? newSettings.get('noiseDelayMin') : currentSettings ? currentSettings.noiseDelayMin : '1',
+        noiseDelayMax: newSettings ? newSettings.get('noiseDelayMax') : currentSettings ? currentSettings.noiseDelayMax : '1',
+        warpPlusLicense: newSettings ? newSettings.get('warpPlusLicense') : currentSettings ? currentSettings.warpPlusLicense : '',
+        customCdnAddrs: newSettings ? newSettings.get('customCdnAddrs')?.replaceAll(' ', '') : currentSettings ? currentSettings.customCdnAddrs : '',
+        customCdnHost: newSettings ? newSettings.get('customCdnHost')?.trim() : currentSettings ? currentSettings.customCdnHost : '',
+        customCdnSni: newSettings ? newSettings.get('customCdnSni')?.trim() : currentSettings ? currentSettings.customCdnSni : '',
+        bestVLESSTrojanInterval: newSettings ? newSettings.get('bestVLESSTrojanInterval') : currentSettings ? currentSettings.bestVLESSTrojanInterval : '30',
+        bestWarpInterval: newSettings ? newSettings.get('bestWarpInterval') : currentSettings ? currentSettings.bestWarpInterval : '30',
         panelVersion: panelVersion
     };
 
@@ -1274,8 +1274,8 @@ function getRandomPath (length) {
 }
 
 async function resolveDNS (domain) {
-    const dohURLv4 = `${dohURL}?name=${encodeURIComponent(domain)}&type=A`;
-    const dohURLv6 = `${dohURL}?name=${encodeURIComponent(domain)}&type=AAAA`;
+    const dohURLv4 = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=A`;
+    const dohURLv6 = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=AAAA`;
 
     try {
         const [ipv4Response, ipv6Response] = await Promise.all([
@@ -1446,6 +1446,7 @@ async function renderHomePage (env, hostName, fragConfigs) {
     const html = `
     <!DOCTYPE html>
     <html lang="en">
+
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1454,37 +1455,7 @@ async function renderHomePage (env, hostName, fragConfigs) {
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
         <title>Collapsible Sections</title>
 		<style>
-            :root {
-                --color: black;
-                --primary-color: #09639f;
-                --secondary-color: #3498db;
-                --header-color: #09639f; 
-                --background-color: #fff;
-                --form-background-color: #f9f9f9;
-                --table-active-color: #f2f2f2;
-                --hr-text-color: #3b3b3b;
-                --lable-text-color: #333;
-                --border-color: #ddd;
-                --button-color: #09639f;
-                --input-background-color: white;
-                --header-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
-            }
-			body { font-family: system-ui; background-color: var(--background-color); color: var(--color) }
-            body.dark-mode {
-                --color: white;
-                --primary-color: #09639F;
-                --secondary-color: #3498DB;
-                --header-color: #3498DB; 
-                --background-color: #121212;
-                --form-background-color: #121212;
-                --table-active-color: #252525;
-                --hr-text-color: #D5D5D5;
-                --lable-text-color: #DFDFDF;
-                --border-color: #353535;
-                --button-color: #3498DB;
-                --input-background-color: #252525;
-                --header-shadow: 2px 2px 4px rgba(255, 255, 255, 0.25);
-            }
+			body { font-family: system-ui; }
             .material-symbols-outlined {
                 margin-left: 5px;
                 font-variation-settings:
@@ -1493,18 +1464,18 @@ async function renderHomePage (env, hostName, fragConfigs) {
                 'GRAD' 0,
                 'opsz' 24
             }
-            details { border-bottom: 1px solid var(--border-color); }
+            details { margin-bottom: 10px; }
             summary {
                 font-weight: bold;
                 cursor: pointer;
                 text-align: center;
                 text-wrap: nowrap;
             }
-            summary::marker { font-size: 1.5rem; color: var(--secondary-color); }
+            summary::marker { font-size: 1.5rem; color: #09639f; }
             summary h2 { display: inline-flex; }
-            h1 { font-size: 2.5em; text-align: center; color: var(--header-color); text-shadow: var(--header-shadow); }
-			h2 { margin: 30px 0; text-align: center; color: var(--hr-text-color); }
-			hr { border: 1px solid var(--border-color); margin: 20px 0; }
+            h1 { font-size: 2.5em; text-align: center; color: #09639f; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25); }
+			h2 { margin: 30px 0; text-align: center; color: #3b3b3b; }
+			hr { border: 1px solid #ddd; margin: 20px 0; }
             .footer {
                 display: flex;
                 font-weight: 600;
@@ -1516,17 +1487,19 @@ async function renderHomePage (env, hostName, fragConfigs) {
             .footer button:hover, .footer button:focus { background: #3b3b3b;}
             .form-control a, a.link { text-decoration: none; }
 			.form-control {
-				margin-bottom: 20px;
+				margin-bottom: 15px;
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				align-items: baseline;
+				justify-content: flex-end;
 				font-family: Arial, sans-serif;
-                display: flex;
-                flex-direction: column;
 			}
             .form-control button {
-                background-color: var(--form-background-color);
+                background-color: white;
                 font-size: 1.1rem;
                 font-weight: 600;
-                color: var(--button-color);
-                border-color: var(--primary-color);
+                color: #09639f;
+                border-color: #09639f;
                 border: 1px solid;
             }
             #apply {display: block; margin-top: 30px;}
@@ -1536,7 +1509,7 @@ async function renderHomePage (env, hostName, fragConfigs) {
 				margin-bottom: 5px;
 				font-size: 110%;
 				font-weight: 600;
-				color: var(--lable-text-color);
+				color: #333;
 			}
 			input[type="text"],
 			input[type="number"],
@@ -1546,11 +1519,11 @@ async function renderHomePage (env, hostName, fragConfigs) {
 				width: 100%;
 				text-align: center;
 				padding: 10px;
-				border: 1px solid var(--border-color);
+				border: 1px solid #ddd;
 				border-radius: 5px;
 				font-size: 16px;
-				color: var(--lable-text-color);
-				background-color: var(--input-background-color);
+				color: #333;
+				background-color: #fff;
 				box-sizing: border-box;
 				transition: border-color 0.3s ease;
 			}	
@@ -1558,7 +1531,7 @@ async function renderHomePage (env, hostName, fragConfigs) {
 			input[type="number"]:focus,
 			input[type="url"]:focus,
 			textarea:focus,
-			select:focus { border-color: var(--secondary-color); outline: none; }
+			select:focus { border-color: #3498db; outline: none; }
 			.button,
 			table button {
 				display: flex;
@@ -1572,18 +1545,13 @@ async function renderHomePage (env, hostName, fragConfigs) {
 				letter-spacing: 1px;
 				border: none;
 				border-radius: 5px;
-				color: white;
-				background-color: var(--primary-color);
+				color: #fff;
+				background-color: #09639f;
 				cursor: pointer;
 				outline: none;
 				box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
 				transition: all 0.3s ease;
 			}
-            input[type="checkbox"] { 
-                background-color: var(--input-background-color);
-                style="margin: 0; 
-                grid-column: 2;"
-            }
             table button { margin: auto; width: auto; }
             .button.disabled {
                 background-color: #ccc;
@@ -1605,11 +1573,10 @@ async function renderHomePage (env, hostName, fragConfigs) {
 				max-width: 90%;
 				margin: 0 auto;
 				padding: 20px;
-				background: var(--form-background-color);
-				border: 1px solid var(--border-color);
+				background: #f9f9f9;
+				border: 1px solid #eaeaea;
 				border-radius: 10px;
 				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                margin-bottom: 100px;
 			}
 			.table-container { margin-top: 20px; overflow-x: auto; }
 			table { 
@@ -1620,12 +1587,12 @@ async function renderHomePage (env, hostName, fragConfigs) {
                 overflow: hidden;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             }
-			th, td { padding: 8px 15px; border-bottom: 1px solid var(--border-color); }
+			th, td { padding: 8px 15px; border-bottom: 1px solid #ddd; }
             td div { display: flex; align-items: center; }
-			th { background-color: var(--secondary-color); color: white; font-weight: bold; font-size: 1.1rem; width: 50%;}
-			tr:nth-child(odd) { background-color: var(--table-active-color); }
+			th { background-color: #3498db; color: white; font-weight: bold; font-size: 1.1rem; width: 50%;}
+			tr:nth-child(odd) { background-color: #f2f2f2; }
             #custom-configs-table td { text-align: center; text-wrap: nowrap; }
-			tr:hover { background-color: var(--table-active-color); }
+			tr:hover { background-color: #f1f1f1; }
             .modal {
                 display: none;
                 position: fixed;
@@ -1638,10 +1605,10 @@ async function renderHomePage (env, hostName, fragConfigs) {
                 background-color: rgba(0, 0, 0, 0.4);
             }
             .modal-content {
-                background-color: var(--form-background-color);
+                background-color: #f9f9f9;
                 margin: auto;
                 padding: 10px 20px 20px;
-                border: 1px solid var(--border-color);
+                border: 1px solid #eaeaea;
                 border-radius: 10px;
                 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
                 width: 80%;
@@ -1650,45 +1617,43 @@ async function renderHomePage (env, hostName, fragConfigs) {
                 left: 50%;
                 transform: translate(-50%, -50%);
             }
-            .close { color: var(--color); float: right; font-size: 28px; font-weight: bold; }
+            .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
             .close:hover,
             .close:focus { color: black; text-decoration: none; cursor: pointer; }
             .form-control label {
                 display: block;
-                margin-bottom: 8px;
+                margin-bottom: 5px;
                 font-size: 110%;
                 font-weight: 600;
-                color: var(--lable-text-color);
+                color: #333;
                 line-height: 1.3em;
             }
             .form-control input[type="password"] {
                 width: 100%;
                 padding: 10px;
-                border: 1px solid var(--border-color);
+                border: 1px solid #ddd;
                 border-radius: 5px;
                 font-size: 16px;
-                color: var(--lable-text-color);
-                background-color: var(--input-background-color);
+                color: #333;
+                background-color: #fff;
                 box-sizing: border-box;
                 margin-bottom: 15px;
                 transition: border-color 0.3s ease;
             }
             .routing { 
                 display: grid;
-                justify-content: flex-start;
-                grid-template-columns: 1fr 1fr 10fr 1fr;
+                grid-template-columns: 1fr 3fr 8fr 1fr;
+                justify-content: center;
                 margin-bottom: 15px;
             }
-            .form-control .routing input { grid-column: 2 / 3; }
-            #routing-rules.form-control { display: grid; grid-template-columns: 1fr 1fr; }
             .routing label {
                 text-align: left;
-                margin: 0 0 0 10px;
+                margin: 0;
                 font-weight: 400;
                 font-size: 100%;
                 text-wrap: nowrap;
             }
-            .form-control input[type="password"]:focus { border-color: var(--secondary-color); outline: none; }
+            .form-control input[type="password"]:focus { border-color: #3498db; outline: none; }
             #passwordError { color: red; margin-bottom: 10px; }
             .symbol { margin-right: 8px; }
             .modalQR {
@@ -1702,43 +1667,15 @@ async function renderHomePage (env, hostName, fragConfigs) {
                 overflow: auto;
                 background-color: rgba(0, 0, 0, 0.4);
             }
-            .floating-button {
-                position: fixed;
-                bottom: 20px;
-                left: 20px;
-                background-color: var(--color);
-                color: white;
-                border: none;
-                border-radius: 50%;
-                width: 60px;
-                height: 60px;
-                font-size: 24px;
-                cursor: pointer;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-                transition: background-color 0.3s, transform 0.3s;
-            }
-            .floating-button:hover { transform: scale(1.1); }
-            .min-max { display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; width: 100%; }
-            .min-max span { text-align: center; white-space: pre; }
-            .input-with-select { width: 100%; }
-            body.dark-mode .floating-button { background-color: var(--color); }
-            body.dark-mode .floating-button:hover { transform: scale(1.1); }
             @media only screen and (min-width: 768px) {
                 .form-container { max-width: 70%; }
-                .form-control { 
-                    margin-bottom: 15px;
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    align-items: baseline;
-                    justify-content: flex-end;
-                    font-family: Arial, sans-serif;
-                }
-                #apply { display: block; margin: 20px auto 0 auto; max-width: 50%; }
+                #apply { display: block; margin: 30px auto 0 auto; max-width: 50%; }
                 .modal-content { width: 30% }
-                .routing { display: grid; grid-template-columns: 4fr 1fr 3fr 4fr; }
+                .routing { grid-template-columns: 4fr 2fr 6fr 4fr; }
             }
 		</style>
 	</head>
+	
 	<body>
 		<h1>BPB Panel <span style="font-size: smaller;">${panelVersion}</span> 💦</h1>
 		<div class="form-container">
@@ -1769,10 +1706,10 @@ async function renderHomePage (env, hostName, fragConfigs) {
                     </div>
                     <div class="form-control">
                         <label>🔎 IP Scanner</label>
-                        <a href="https://scanner.github1.cloud/" id="scanner" name="scanner" target="_blank" style="width: 100%;">
+                        <a href="https://scanner.github1.cloud/" id="scanner" name="scanner" target="_blank">
                             <button type="button" class="button">
                                 Scan now
-                                <span class="material-symbols-outlined">open_in_new</span>
+                                <span class="material-symbols-outlined" style="margin-left: 5px;">open_in_new</span>
                             </button>
                         </a>
                     </div>
@@ -1786,15 +1723,15 @@ async function renderHomePage (env, hostName, fragConfigs) {
                         </div>
                     </div>
                     <div class="form-control">
-                        <label for="customCdnAddrs">💀 Custom CDN Addrs</label>
+                        <label for="customCdnAddrs">💀 Custom Addr</label>
                         <input type="text" id="customCdnAddrs" name="customCdnAddrs" value="${customCdnAddrs.replaceAll(",", " , ")}">
                     </div>
                     <div class="form-control">
-                        <label for="customCdnHost">💀 Custom CDN Host</label> 
+                        <label for="customCdnHost">💀 Custom Host</label> 
                         <input type="text" id="customCdnHost" name="customCdnHost" value="${customCdnHost}">
                     </div>
                     <div class="form-control">
-                        <label for="customCdnSni">💀 Custom CDN SNI</label>
+                        <label for="customCdnSni">💀 Custom SNI</label>
                         <input type="text" id="customCdnSni" name="customCdnSni" value="${customCdnSni}">
                     </div>
                     <div class="form-control">
@@ -1803,19 +1740,19 @@ async function renderHomePage (env, hostName, fragConfigs) {
                     </div>
                     <div class="form-control" style="padding-top: 10px;">
                         <label>⚙️ Protocols</label>
-                        <div style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; align-items: baseline; margin-top: 10px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; align-items: baseline; margin-top: 10px;">
                             <div style = "display: flex; justify-content: center; align-items: center;">
-                                <input type="checkbox" id="vlessConfigs" name="vlessConfigs" onchange="handleProtocolChange(event)" value="true" ${vlessConfigs ? 'checked' : ''}>
+                                <input type="checkbox" id="vlessConfigs" name="vlessConfigs" onchange="handleProtocolChange(event)" style="margin: 0; grid-column: 2;" value="true" ${vlessConfigs ? 'checked' : ''}>
                                 <label for="vlessConfigs" style="margin: 0 5px; font-weight: normal; font-size: unset;">VLESS</label>
                             </div>
                             <div style = "display: flex; justify-content: center; align-items: center;">
-                                <input type="checkbox" id="trojanConfigs" name="trojanConfigs" onchange="handleProtocolChange(event)" value="true" ${trojanConfigs ? 'checked' : ''}>
+                                <input type="checkbox" id="trojanConfigs" name="trojanConfigs" onchange="handleProtocolChange(event)" style="margin: 0; grid-column: 2;" value="true" ${trojanConfigs ? 'checked' : ''}>
                                 <label for="trojanConfigs" style="margin: 0 5px; font-weight: normal; font-size: unset;">Trojan</label>
                             </div>
                         </div>
                     </div>
                     <div class="table-container">
-                        <table id="ports-block">
+                        <table id="frag-sub-table">
                             <tr>
                                 <th style="text-wrap: nowrap; background-color: gray;">Config type</th>
                                 <th style="text-wrap: nowrap; background-color: gray;">Ports</th>
@@ -1835,18 +1772,18 @@ async function renderHomePage (env, hostName, fragConfigs) {
                     <summary><h2>FRAGMENT ⚙️</h2></summary>	
                     <div class="form-control">
                         <label for="fragmentLengthMin">📐 Length</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="fragmentLengthMin" name="fragmentLengthMin" value="${lengthMin}" min="10" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="fragmentLengthMax" name="fragmentLengthMax" value="${lengthMax}" max="500" required>
                         </div>
                     </div>
                     <div class="form-control">
                         <label for="fragmentIntervalMin">🕞 Interval</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="fragmentIntervalMin" name="fragmentIntervalMin"
                                 value="${intervalMin}" min="1" max="30" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="fragmentIntervalMax" name="fragmentIntervalMax"
                                 value="${intervalMax}" min="1" max="30" required>
                         </div>
@@ -1865,36 +1802,36 @@ async function renderHomePage (env, hostName, fragConfigs) {
                     </div>
                 </details>
                 <details>
-                    <summary><h2>ROUTING RULES ⚙️</h2></summary>
-                    <div id="routing-rules" class="form-control" style="margin-bottom: 20px;">			
+                    <summary><h2>ROUTING ⚙️</h2></summary>
+                    <div class="form-control" style="margin-bottom: 20px;">			
                         <div class="routing">
-                            <input type="checkbox" id="block-ads" name="block-ads" value="true" ${blockAds ? 'checked' : ''}>
+                            <input type="checkbox" id="block-ads" name="block-ads" style="margin: 0; grid-column: 2;" value="true" ${blockAds ? 'checked' : ''}>
                             <label for="block-ads">Block Ads.</label>
                         </div>
                         <div class="routing">
-                            <input type="checkbox" id="bypass-iran" name="bypass-iran" value="true" ${bypassIran ? 'checked' : ''}>
+                            <input type="checkbox" id="bypass-iran" name="bypass-iran" style="margin: 0; grid-column: 2;" value="true" ${bypassIran ? 'checked' : ''}>
                             <label for="bypass-iran">Bypass Iran</label>
                         </div>
                         <div class="routing">
-                            <input type="checkbox" id="block-porn" name="block-porn" value="true" ${blockPorn ? 'checked' : ''}>
+                            <input type="checkbox" id="block-porn" name="block-porn" style="margin: 0; grid-column: 2;" value="true" ${blockPorn ? 'checked' : ''}>
                             <label for="block-porn">Block Porn</label>
                         </div>
                         <div class="routing">
-                            <input type="checkbox" id="bypass-lan" name="bypass-lan" value="true" ${bypassLAN ? 'checked' : ''}>
+                            <input type="checkbox" id="bypass-lan" name="bypass-lan" style="margin: 0; grid-column: 2;" value="true" ${bypassLAN ? 'checked' : ''}>
                             <label for="bypass-lan">Bypass LAN</label>
                         </div>
                         <div class="routing">
-                            <input type="checkbox" id="block-udp-443" name="block-udp-443" value="true" ${blockUDP443 ? 'checked' : ''}>
-                            <label for="block-udp-443">Block QUIC</label>
+                            <input type="checkbox" id="bypass-china" name="bypass-china" style="margin: 0; grid-column: 2;" value="true" ${bypassChina ? 'checked' : ''}>
+                            <label for="bypass-china">Bypass China</label>
                         </div>
                         <div class="routing">
-                            <input type="checkbox" id="bypass-china" name="bypass-china" value="true" ${bypassChina ? 'checked' : ''}>
-                            <label for="bypass-china">Bypass China</label>
+                            <input type="checkbox" id="block-udp-443" name="block-udp-443" style="margin: 0; grid-column: 2;" value="true" ${blockUDP443 ? 'checked' : ''}>
+                            <label for="block-udp-443">Block QUIC</label>
                         </div>
                     </div>
                 </details>
                 <details>
-                    <summary><h2>WARP GENERAL ⚙️</h2></summary>
+                    <summary><h2>WARP ⚙️</h2></summary>
                     <div class="form-control">
                         <label for="wowEndpoint">✨ WoW Endpoints</label>
                         <input type="text" id="wowEndpoint" name="wowEndpoint" value="${wowEndpoint.replaceAll(",", " , ")}" required>
@@ -1944,30 +1881,30 @@ async function renderHomePage (env, hostName, fragConfigs) {
                     </div>
                     <div class="form-control">
                         <label for="noiseCountMin">🎚️ Noise Count</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="noiseCountMin" name="noiseCountMin"
                                 value="${noiseCountMin}" min="1" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="noiseCountMax" name="noiseCountMax"
                                 value="${noiseCountMax}" min="1" required>
                         </div>
                     </div>
                     <div class="form-control">
                         <label for="noiseSizeMin">📏 Noise Size</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="noiseSizeMin" name="noiseSizeMin"
                                 value="${noiseSizeMin}" min="1" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="noiseSizeMax" name="noiseSizeMax"
                                 value="${noiseSizeMax}" min="1" required>
                         </div>
                     </div>
                     <div class="form-control">
                         <label for="noiseDelayMin">🕞 Noise Delay</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="noiseDelayMin" name="noiseDelayMin"
                                 value="${noiseDelayMin}" min="1" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="noiseDelayMax" name="noiseDelayMax"
                                 value="${noiseDelayMax}" min="1" required>
                         </div>
@@ -1977,7 +1914,7 @@ async function renderHomePage (env, hostName, fragConfigs) {
 					<div style="grid-column: 2; width: 100%; display: inline-flex;">
 						<input type="submit" id="applyButton" style="margin-right: 10px;" class="button disabled" value="APPLY SETTINGS 💥" form="configForm">
                         <button type="button" id="resetSettings" style="background: none; margin: 0; border: none; cursor: pointer;">
-                            <i class="fa fa-refresh fa-2x fa-border" style="border-radius: .2em; border-color: var(--border-color);" aria-hidden="true"></i>
+                            <i class="fa fa-refresh fa-2x fa-border" style="border-radius: .2em;" aria-hidden="true"></i>
                         </button>
 					</div>
 				</div>
@@ -2110,7 +2047,7 @@ async function renderHomePage (env, hostName, fragConfigs) {
                 <table id="frag-sub-table">
                     <tr>
                         <th style="text-wrap: nowrap;">Application</th>
-                        <th style="text-wrap: nowrap;">Subscription</th>
+                        <th style="text-wrap: nowrap;">Fragment Subscription</th>
                     </tr>
                     <tr>
                         <td style="text-wrap: nowrap;">
@@ -2326,16 +2263,13 @@ async function renderHomePage (env, hostName, fragConfigs) {
             <hr>
             <div class="footer">
                 <i class="fa fa-github" style="font-size:36px; margin-right: 10px;"></i>
-                <a class="link" href="https://github.com/bia-pain-bache/BPB-Worker-Panel" style="color: var(--color); text-decoration: underline;" target="_blank">Github</a>
+                <a class="link" href="https://github.com/bia-pain-bache/BPB-Worker-Panel" target="_blank">Github</a>
                 <button id="openModalBtn" class="button">Change Password</button>
-                <button type="button" id="logout" style="background: none; color: var(--color); margin: 0; border: none; cursor: pointer;">
+                <button type="button" id="logout" style="background: none; margin: 0; border: none; cursor: pointer;">
                     <i class="fa fa-power-off fa-2x" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
-        <button id="darkModeToggle" class="floating-button">
-            <i id="modeIcon" class="fa fa-2x fa-adjust" style="color: var(--background-color);" aria-hidden="true"></i>
-        </button>
         
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl.min.js"></script>
@@ -2359,9 +2293,7 @@ async function renderHomePage (env, hostName, fragConfigs) {
             let modalQR = document.getElementById('myQRModal');
             let qrcodeContainer = document.getElementById('qrcode-container');
             let forcedPassChange = false;
-            const darkModeToggle = document.getElementById('darkModeToggle');
 
-            localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
             ${isPassSet && !isWarpReady} && await getWarpConfigs();
                   
             const hasFormDataChanged = () => {
@@ -2446,14 +2378,6 @@ async function renderHomePage (env, hostName, fragConfigs) {
                     qrcodeContainer.lastElementChild.remove();
                 }
             }
-            darkModeToggle.addEventListener('click', () => {
-                const isDarkMode = document.body.classList.toggle('dark-mode');
-                if (isDarkMode) {
-                    localStorage.setItem('darkMode', 'enabled');
-                } else {
-                    localStorage.setItem('darkMode', 'disabled');                
-                }
-            });
 
             if (${!isPassSet}) {
                 forcedPassChange = true;
@@ -2795,38 +2719,14 @@ async function renderLoginPage () {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Login</title>
     <style>
-        :root {
-            --color: black;
-            --primary-color: #09639f;
-            --header-color: #09639f; 
-            --background-color: #fff;
-            --form-background-color: #f9f9f9;
-            --lable-text-color: #333;
-            --h2-color: #3b3b3b;
-            --border-color: #ddd;
-            --input-background-color: white;
-            --header-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
-        }
+
         html, body { height: 100%; margin: 0; }
         body {
             font-family: system-ui;
-            background-color: var(--background-color);
+            background-color: #f9f9f9;
             position: relative;
             overflow: hidden;
         }
-        body.dark-mode {
-            --color: white;
-            --primary-color: #09639F;
-            --header-color: #3498DB; 
-            --background-color: #121212;
-            --form-background-color: #121212;
-            --lable-text-color: #DFDFDF;
-            --h2-color: #D5D5D5;
-            --border-color: #353535;
-            --input-background-color: #252525;
-            --header-shadow: 2px 2px 4px rgba(255, 255, 255, 0.25);
-        }
-        html, body { height: 100%; margin: 0; }
         .container {
             position: absolute;
             top: 50%;
@@ -2834,11 +2734,11 @@ async function renderLoginPage () {
             transform: translate(-50%, -50%);
             width: 90%;
         }
-        h1 { font-size: 2.5rem; text-align: center; color: var(--header-color); margin: 0 auto 30px; text-shadow: var(--header-shadow); }        
-        h2 { text-align: center; color: var(--h2-color) }
+        h1 { font-size: 2.5rem; text-align: center; color: #09639f; margin: 0 auto 30px; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25); }        
+        h2 {text-align: center;}
         .form-container {
-            background: var(--form-background-color);
-            border: 1px solid var(--border-color);
+            background: #f9f9f9;
+            border: 1px solid #eaeaea;
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             padding: 20px;
@@ -2850,16 +2750,15 @@ async function renderLoginPage () {
             padding-right: 20px;
             font-size: 110%;
             font-weight: 600;
-            color: var(--lable-text-color);
+            color: #333;
         }
         input[type="text"],
         input[type="password"] {
             width: 100%;
             padding: 10px;
-            border: 1px solid var(--border-color);
+            border: 1px solid #ddd;
             border-radius: 5px;
-            color: var(--lable-text-color);
-            background-color: var(--input-background-color);
+            color: #333;
         }
         button {
             display: block;
@@ -2869,12 +2768,12 @@ async function renderLoginPage () {
             font-weight: 600;
             border: none;
             border-radius: 5px;
-            color: white;
-            background-color: var(--primary-color);
+            color: #fff;
+            background-color: #09639f;
             cursor: pointer;
             transition: background-color 0.3s ease;
         }
-        button:hover { background-color: var(--primary-color); }
+        button:hover {background-color: #2980b9;}
         @media only screen and (min-width: 768px) {
             .container { width: 30%; }
         }
@@ -2896,9 +2795,6 @@ async function renderLoginPage () {
             </div>
         </div>
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
-        });
         document.getElementById('loginForm').addEventListener('submit', async (event) => {
             event.preventDefault();
             const password = document.getElementById('password').value;
@@ -2939,30 +2835,16 @@ function renderErrorPage (message, error, refer) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Error Page</title>
         <style>
-            :root {
-                --color: black;
-                --header-color: #09639f; 
-                --background-color: #fff;
-                --border-color: #ddd;
-                --header-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
-            }
-            body, html {
+            body,
+            html {
                 height: 100%;
                 margin: 0;
                 display: flex;
                 justify-content: center;
                 align-items: center;
                 font-family: system-ui;
-                color: var(--color);
-                background-color: var(--background-color);
             }
-            body.dark-mode {
-                --color: white;
-                --header-color: #3498DB; 
-                --background-color: #121212;
-                --header-shadow: 2px 2px 4px rgba(255, 255, 255, 0.25);          
-            }
-            h1 { font-size: 2.5rem; text-align: center; color: var(--header-color); text-shadow: var(--header-shadow); }
+            h1 { font-size: 2.5rem; text-align: center; color: #09639f; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25); }
             #error-container { text-align: center; }
         </style>
     </head>
@@ -2977,11 +2859,6 @@ function renderErrorPage (message, error, refer) {
                 <p><b>${error ? `⚠️ ${error.stack.toString()}` : ''}</b></p>
             </div>
         </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
-        });
-    </script>
     </body>
     </html>`;
 }
@@ -3079,7 +2956,7 @@ async function buildWarpOutbounds (env, client, proxySettings, warpConfigs) {
     warpEndpoints.split(',').forEach( (endpoint, index) => {
         
         if (client === 'xray' || client === 'nikang') {
-            let xrayOutbound = buildXrayWarpOutbound(`prox-${index + 1}`, warpIPv6, privateKey, publicKey, endpoint, reserved, '');
+            let xrayOutbound = buildXrayWarpOutbound(`warp-${index + 1}`, warpIPv6, privateKey, publicKey, endpoint, reserved, '');
             client === 'nikang' && Object.assign(xrayOutbound.settings, {
                 wnoise: nikaNGNoiseMode,
                 wnoisecount: fakePackets,
@@ -3147,13 +3024,13 @@ async function buildWoWOutbounds (env, client, proxySettings, warpConfigs) {
 
             if (client === 'xray' || client === 'nikang') {
                 let xrayOutbound = buildXrayWarpOutbound(
-                    i === 1 ? `proxy` : `chain`,
+                    i === 1 ? `warp-ir_${index + 1}` : `warp-out_${index + 1}`, 
                     warpIPv6, 
                     privateKey, 
                     publicKey, 
                     endpoint, 
                     reserved, 
-                    i === 1 ? '' : `proxy`
+                    i === 1 ? '' : `warp-ir_${index + 1}`
                 );
 
                 (client === 'nikang' && i === 1) && Object.assign(xrayOutbound.settings, {
@@ -3169,16 +3046,16 @@ async function buildWoWOutbounds (env, client, proxySettings, warpConfigs) {
             if (client === 'singbox' || client === 'hiddify') {
                 let singboxOutbound = buildSingboxWarpOutbound(
                     i === 1
-                        ? `proxy-${index + 1}` 
-                        : client === 'hiddify' 
-                            ? `💦 WoW Pro ${index + 1} 🌍` 
-                            : `💦 WoW ${index + 1} 🌍` , 
+                    ? `warp-ir_${index + 1}` 
+                    : client === 'hiddify' 
+                        ? `💦 WoW Pro ${index + 1} 🌍` 
+                        : `💦 WoW ${index + 1} 🌍` , 
                     warpIPv6, 
                     privateKey, 
                     publicKey, 
                     endpoint, 
                     reserved, 
-                    i === 0 ? `proxy-${index + 1}` : ''
+                    i === 0 ? `warp-ir_${index + 1}` : ''
                 );
                 
                 (client === 'hiddify' && i === 1) && Object.assign(singboxOutbound, {
@@ -3193,13 +3070,13 @@ async function buildWoWOutbounds (env, client, proxySettings, warpConfigs) {
 
             if (client === 'clash') {
                 let clashOutbound = buildClashWarpOutbound(
-                    i === 1 ? `proxy-${index + 1}` : `💦 WoW ${index + 1} 🌍`, 
+                    i === 1 ? `warp-ir_${index + 1}` : `💦 WoW ${index + 1} 🌍`, 
                     warpIPv6, 
                     privateKey, 
                     publicKey, 
                     endpoint,
                     reserved, 
-                    i === 0 ? `proxy-${index + 1}` : ''
+                    i === 0 ? `warp-ir_${index + 1}` : ''
                 );
 
                 wowOutbounds.push(clashOutbound);
@@ -3355,7 +3232,7 @@ function buildXrayRoutingRules (localDNS, blockAds, bypassIran, blockPorn, bypas
     } else  {
         rules.push({
             network: isWarp || isWorkerLess ? "tcp,udp" : "tcp",
-            outboundTag: isChain ? "chain" : isWorkerLess ? "fragment" : "proxy",
+            outboundTag: isChain ? "out" : isWorkerLess ? "fragment" : "proxy",
             type: "field"
         });
     }
@@ -3514,7 +3391,7 @@ function buildXrayChainOutbound(chainProxyParams) {
                 xudpConcurrency: 16,
                 xudpProxyUDP443: "reject"
             },
-            tag: "chain"
+            tag: "out"
         };
     }
 
@@ -3552,7 +3429,7 @@ function buildXrayChainOutbound(chainProxyParams) {
                 tcpNoDelay: true
             }
         },
-        tag: "chain"
+        tag: "out"
     };
     
     if (security === 'tls') {
@@ -3621,7 +3498,7 @@ function buildXrayChainOutbound(chainProxyParams) {
     return proxyOutbound;
 }
 
-async function buildXrayWorkerLessConfig(remoteDNS, localDNS, lengthMin,  lengthMax,  intervalMin,  intervalMax, fragmentPackets, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443) {
+async function buildWorkerLessConfig(remoteDNS, localDNS, lengthMin,  lengthMax,  intervalMin,  intervalMax, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443) {
     let fakeOutbound = buildXrayVLESSOutbound('fake-outbound', 'google.com', 443, userID, 'google.com', '');
     delete fakeOutbound.streamSettings.sockopt;
     fakeOutbound.streamSettings.wsSettings.path = '/';
@@ -3631,7 +3508,6 @@ async function buildXrayWorkerLessConfig(remoteDNS, localDNS, lengthMin,  length
     fragConfig.outbounds[0].settings.domainStrategy = 'UseIP';
     fragConfig.outbounds[0].settings.fragment.length = `${lengthMin}-${lengthMax}`;
     fragConfig.outbounds[0].settings.fragment.interval = `${intervalMin}-${intervalMax}`;
-    fragConfig.outbounds[0].settings.fragment.packets = fragmentPackets;
     fragConfig.outbounds = [
         {...fragConfig.outbounds[0]}, 
         {...fakeOutbound}, 
@@ -3745,14 +3621,13 @@ async function getXrayFragmentConfigs(env, hostName) {
                         ? fragConfig.dns.servers[1].domains.push(`full:${addr}`)
                         : fragConfig.dns.servers.splice(1,1);
 
-                    outbound.tag = `prox-${proxyIndex}`;
+                    outbound.tag = `prox_${proxyIndex}`;
                     let proxyOut = structuredClone(chainProxy);
-                    proxyOut.tag = `chain-${proxyIndex}`;
-                    proxyOut.streamSettings.sockopt.dialerProxy = `prox-${proxyIndex}`;
+                    proxyOut.tag = `out_${proxyIndex}`;
+                    proxyOut.streamSettings.sockopt.dialerProxy = `prox_${proxyIndex}`;
                     outbounds.push({...proxyOut}, {...outbound});
                 } else {
                     fragConfig.outbounds = [{ ...outbound}, ...fragConfig.outbounds];
-                    outbound.tag = `prox-${proxyIndex}`;
                     outbounds.push({...outbound});
                 }
     
@@ -3767,8 +3642,8 @@ async function getXrayFragmentConfigs(env, hostName) {
     bestPing.outbounds = [...outbounds, ...bestPing.outbounds];
     
     if (chainProxy) {
-        bestPing.observatory.subjectSelector = ["chain"];
-        bestPing.routing.balancers[0].selector = ["chain"];
+        bestPing.observatory.subjectSelector = ["out"];
+        bestPing.routing.balancers[0].selector = ["out"];
         bestPing.dns.servers[1].domains = domainAddressesRules;
     }
 
@@ -3777,7 +3652,7 @@ async function getXrayFragmentConfigs(env, hostName) {
     bestFragment.outbounds.splice(0,1);
     bestFragValues.forEach( (fragLength, index) => {
         bestFragment.outbounds.push({
-            tag: `frag-${index + 1}`,
+            tag: `frag_${index + 1}`,
             protocol: "freedom",
             settings: {
                 fragment: {
@@ -3787,7 +3662,7 @@ async function getXrayFragmentConfigs(env, hostName) {
                 }
             },
             proxySettings: {
-                tag: chainProxy ? "chain" : "proxy"
+                tag: chainProxy ? "out" : "proxy"
             }
         });
     });
@@ -3797,7 +3672,7 @@ async function getXrayFragmentConfigs(env, hostName) {
     if (chainProxy) {
         bestFragmentOutbounds[0].streamSettings.sockopt.dialerProxy = 'proxy';
         delete bestFragmentOutbounds[1].streamSettings.sockopt.dialerProxy;
-        bestFragmentOutbounds[0].tag = 'chain';
+        bestFragmentOutbounds[0].tag = 'out';
         bestFragmentOutbounds[1].tag = 'proxy';
         bestFragment.outbounds = [bestFragmentOutbounds[0], bestFragmentOutbounds[1], ...bestFragment.outbounds];
         bestFragment.dns.servers[1].domains = domainAddressesRules;
@@ -3809,7 +3684,7 @@ async function getXrayFragmentConfigs(env, hostName) {
 
     bestFragment.observatory.subjectSelector = ["frag"];
     bestFragment.routing.balancers[0].selector = ["frag"];
-    const workerLessConfig = await buildXrayWorkerLessConfig(remoteDNS, localDNS, lengthMin,  lengthMax,  intervalMin,  intervalMax, fragmentPackets, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443); 
+    const workerLessConfig = await buildWorkerLessConfig(remoteDNS, localDNS, lengthMin,  lengthMax,  intervalMin,  intervalMax, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443); 
     Configs.push(bestPing, bestFragment, workerLessConfig);
 
     return Configs;
@@ -3838,15 +3713,15 @@ async function getXrayWarpConfigs (env, client) {
     xrayWarpConfig.dns = await buildXrayDNSObject('1.1.1.1', localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn, false);
     xrayWarpConfig.routing.rules = buildXrayRoutingRules(localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, false, false, false, true);
     xrayWarpConfig.outbounds.splice(0,1);
-    xrayWarpConfig.routing.rules[xrayWarpConfig.routing.rules.length - 1].outboundTag = 'proxy';
+    xrayWarpConfig.routing.rules[xrayWarpConfig.routing.rules.length - 1].outboundTag = 'warp';
     delete xrayWarpConfig.observatory;
     delete xrayWarpConfig.routing.balancers;
-    xrayWarpBestPing.remarks = client === 'nikang' ? '💦 Warp Pro Best Ping 🚀' : '💦 Warp Best Ping 🚀';
+    xrayWarpBestPing.remarks = client === 'nikang' ? '💦 BPB - Warp Pro Best Ping 🚀' : '💦 BPB - Warp Best Ping 🚀';
     xrayWarpBestPing.dns = await buildXrayDNSObject('1.1.1.1', localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn, false);
     xrayWarpBestPing.routing.rules = buildXrayRoutingRules(localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, false, true, false, true);
     xrayWarpBestPing.outbounds.splice(0,1);
-    xrayWarpBestPing.routing.balancers[0].selector = ['prox'];
-    xrayWarpBestPing.observatory.subjectSelector = ['prox'];
+    xrayWarpBestPing.routing.balancers[0].selector = ['warp'];
+    xrayWarpBestPing.observatory.subjectSelector = ['warp'];
     xrayWarpBestPing.observatory.probeInterval = `${bestWarpInterval}s`;
     xrayWoWConfigTemp.dns = await buildXrayDNSObject('1.1.1.1', localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn, false);
     xrayWoWConfigTemp.routing.rules = buildXrayRoutingRules(localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, false, false, false, true);
@@ -3857,33 +3732,25 @@ async function getXrayWarpConfigs (env, client) {
     xrayWarpOutbounds.forEach((outbound, index) => {
         xrayWarpConfigs.push({
             ...xrayWarpConfig,
-            remarks: client === 'nikang' ? `💦 Warp Pro ${index + 1} 🇮🇷` : `💦 Warp ${index + 1} 🇮🇷`,
-            outbounds: [{...outbound, tag: 'proxy'}, ...xrayWarpConfig.outbounds]
+            remarks: client === 'nikang' ? `💦 BPB - Warp Pro ${index + 1} 🇮🇷` : `💦 BPB - Warp ${index + 1} 🇮🇷`,
+            outbounds: [{...outbound, tag: 'warp'}, ...xrayWarpConfig.outbounds]
         });
     });
     
-    let proxyIndex = 1;
     xrayWoWOutbounds.forEach((outbound, index) => {
-        if (outbound.tag === 'chain') {
+        if (outbound.tag.includes('warp-out')) {
             let xrayWoWConfig = structuredClone(xrayWoWConfigTemp);
-            const chainOutbound = structuredClone(outbound);
-            const proxyOutbound = structuredClone(xrayWoWOutbounds[index + 1]);
-            xrayWoWConfig.remarks = client === 'nikang' ? `💦 WoW Pro ${proxyIndex} 🌍` : `💦 WoW ${proxyIndex} 🌍`;
-            xrayWoWConfig.routing.rules[xrayWoWConfig.routing.rules.length - 1].outboundTag = 'chain';
-            xrayWoWConfig.outbounds = [ chainOutbound, proxyOutbound, ...xrayWoWConfig.outbounds ];
+            xrayWoWConfig.remarks = client === 'nikang' ? `💦 BPB - WoW Pro ${index/2 + 1} 🌍` : `💦 BPB - WoW ${index/2 + 1} 🌍`;
+            xrayWoWConfig.outbounds = [{...xrayWoWOutbounds[index]}, {...xrayWoWOutbounds[index + 1]}, ...xrayWoWConfig.outbounds];
+            xrayWoWConfig.routing.rules[xrayWoWConfig.routing.rules.length - 1].outboundTag = outbound.tag;
             xrayWarpConfigs.push(xrayWoWConfig);
-            outbound.tag = `chain-${proxyIndex}`;
-            outbound.streamSettings.sockopt.dialerProxy = `prox-${proxyIndex}`;
-        } else {
-            outbound.tag = `prox-${proxyIndex}`;
-            proxyIndex++;
         }
     });
 
     let xrayWoWBestPing = structuredClone(xrayWarpBestPing);
-    xrayWoWBestPing.remarks = client === 'nikang' ? '💦 WoW Pro Best Ping 🚀' : '💦 WoW Best Ping 🚀';
-    xrayWoWBestPing.routing.balancers[0].selector = ['chain'];
-    xrayWoWBestPing.observatory.subjectSelector = ['chain'];
+    xrayWoWBestPing.remarks = client === 'nikang' ? '💦 BPB - WoW Pro Best Ping 🚀' : '💦 BPB - WoW Best Ping 🚀';
+    xrayWoWBestPing.routing.balancers[0].selector = ['warp-out'];
+    xrayWoWBestPing.observatory.subjectSelector = ['warp-out'];
     xrayWarpBestPing.outbounds = [...xrayWarpOutbounds, ...xrayWarpBestPing.outbounds];
     xrayWoWBestPing.outbounds = [...xrayWoWOutbounds, ...xrayWoWBestPing.outbounds];
     xrayWarpConfigs.push(xrayWarpBestPing, xrayWoWBestPing);
@@ -3971,7 +3838,7 @@ function buildClashVLESSOutbound (remark, address, port, uuid, host, sni, path) 
 
     if (tls) {
         Object.assign(outbound, {
-            "servername": sni,
+            "servername": randomUpperCase(sni),
             "alpn": ["h2", "http/1.1"],
             "client-fingerprint": "random"
         });
@@ -3995,7 +3862,7 @@ function buildClashTrojanOutbound (remark, address, port, password, host, sni, p
             "max-early-data": 2560,
             "early-data-header-name": "Sec-WebSocket-Protocol"
         },
-        "sni": sni,
+        "sni": randomUpperCase(sni),
         "alpn": ["h2", "http/1.1"],
         "client-fingerprint": "random"
     };
@@ -4201,7 +4068,7 @@ async function getClashConfig (env, hostName, isWarp) {
                 let VLESSOutbound, TrojanOutbound;
                 const isCustomAddr = index > Addresses.length - 1;
                 const configType = isCustomAddr ? 'C' : '';
-                const sni = isCustomAddr ? customCdnSni : randomUpperCase(hostName);
+                const sni = isCustomAddr ? customCdnSni : hostName;
                 const host = isCustomAddr ? customCdnHost : hostName;
 
                 if (vlessConfigs && i === 0) {
@@ -4462,7 +4329,7 @@ function buildSingboxVLESSOutbound (remark, address, port, uuid, host, sni, path
             alpn: "http/1.1",
             enabled: true,
             insecure: false,
-            server_name: sni,
+            server_name: randomUpperCase(sni),
             utls: {
                 enabled: true,
                 fingerprint: "randomized"
@@ -4501,7 +4368,7 @@ function buildSingboxTrojanOutbound (remark, address, port, password, host, sni,
             alpn: "http/1.1",
             enabled: true,
             insecure: false,
-            server_name: sni,
+            server_name: randomUpperCase(sni),
             utls: {
                 enabled: true,
                 fingerprint: "randomized"
@@ -4757,7 +4624,7 @@ async function getSingboxConfig (env, hostName, client, isWarp, isFragment) {
                 let VLESSOutbound, TrojanOutbound;
                 const isCustomAddr = index > Addresses.length - 1;
                 const configType = isCustomAddr ? 'C' : isFragment ? 'F' : '';
-                const sni = isCustomAddr ? customCdnSni : randomUpperCase(hostName);
+                const sni = isCustomAddr ? customCdnSni : hostName;
                 const host = isCustomAddr ? customCdnHost : hostName;
          
                 if (vlessConfigs && i === 0) {
