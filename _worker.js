@@ -19,7 +19,7 @@ let trojanPassword = `bpb-trojan`;
 // https://emn178.github.io/online-tools/sha224.html
 // https://www.atatus.com/tools/sha224-to-hash
 let hashPassword = 'b5d0a5f7ff7aac227bc68b55ae713131ffdf605ca0da52cce182d513';
-let panelVersion = '2.6.5';
+let panelVersion = '2.6.1';
 
 if (!isValidUUID(userID)) throw new Error(`Invalid UUID: ${userID}`);
 if (!isValidSHA224(hashPassword)) throw new Error(`Invalid Hash password: ${hashPassword}`);
@@ -46,7 +46,6 @@ export default {
                 const searchParams = new URLSearchParams(url.search);
                 const host = request.headers.get('Host');
                 const client = searchParams.get('app');
-                const { proxySettings, warpConfigs } = await getDataset(env); 
 
                 switch (url.pathname) {
 
@@ -66,7 +65,7 @@ export default {
                         if (request.method === 'POST' && request.headers.get('content-type') === 'application/json') {
                             try {
                                 const warpKeys = await request.json();
-                                const warpPlusError = await fetchWgConfig(env, proxySettings, warpKeys);
+                                const warpPlusError = await fetchWgConfig(env, warpKeys);
                                 if (warpPlusError) {
                                     return new Response(warpPlusError, { status: 400 });
                                 } else {
@@ -84,7 +83,7 @@ export default {
                     case `/sub/${userID}`:
 
                         if (client === 'sfa') {
-                            const BestPingSFA = await getSingboxNormalConfig(env, proxySettings, host, client, false);
+                            const BestPingSFA = await getSingboxConfig(env, host, client, false);
                             return new Response(JSON.stringify(BestPingSFA, null, 4), { 
                                 status: 200,
                                 headers: {
@@ -96,7 +95,7 @@ export default {
                         }
                         
                         if (client === 'clash') {
-                            const BestPingClash = await getClashNormalConfig(env, proxySettings, host);
+                            const BestPingClash = await getClashConfig(env, host, false);
                             return new Response(JSON.stringify(BestPingClash, null, 4), { 
                                 status: 200,
                                 headers: {
@@ -107,7 +106,7 @@ export default {
                             });                            
                         }
 
-                        const normalConfigs = await getNormalConfigs(proxySettings, host, client);
+                        const normalConfigs = await getNormalConfigs(env, host, client);
                         return new Response(normalConfigs, { 
                             status: 200,
                             headers: {
@@ -120,8 +119,8 @@ export default {
                     case `/fragsub/${userID}`:
   
                         let fragConfigs = client === 'hiddify'
-                            ? await getSingboxNormalConfig(env, proxySettings, host, client, true)
-                            : await getXrayFragmentConfigs(env, proxySettings, host);
+                            ? await getSingboxConfig(env, host, client, false, true)
+                            : (await getXrayFragmentConfigs(env, host));
 
                         return new Response(JSON.stringify(fragConfigs, null, 4), { 
                             status: 200,
@@ -135,8 +134,8 @@ export default {
                     case `/warpsub/${userID}`:
 
                         if (client === 'clash') {
-                            const clashWarpConfig = await getClashWarpConfig(proxySettings, warpConfigs);
-                            return new Response(JSON.stringify(clashWarpConfig, null, 4), { 
+                            const clashWarpConfigs = await getClashConfig(env, host, true);
+                            return new Response(JSON.stringify(clashWarpConfigs, null, 4), { 
                                 status: 200,
                                 headers: {
                                     'Content-Type': 'application/json;charset=utf-8',
@@ -147,8 +146,8 @@ export default {
                         }
                         
                         if (client === 'singbox' || client === 'hiddify') {
-                            const singboxWarpConfig = await getSingboxWarpConfig(proxySettings, warpConfigs, client);
-                            return new Response(JSON.stringify(singboxWarpConfig, null, 4), { 
+                            const singboxWarpConfigs = await getSingboxConfig(env, host, client, true);
+                            return new Response(JSON.stringify(singboxWarpConfigs, null, 4), { 
                                 status: 200,
                                 headers: {
                                     'Content-Type': 'application/json;charset=utf-8',
@@ -158,7 +157,7 @@ export default {
                             });                            
                         }
 
-                        const warpConfig = await getXrayWarpConfigs(proxySettings, warpConfigs, client);
+                        const warpConfig = await getXrayWarpConfigs(env, client);
                         return new Response(JSON.stringify(warpConfig, null, 4), { 
                             status: 200,
                             headers: {
@@ -190,9 +189,10 @@ export default {
                         }
                         
                         if (pwd && !isAuth) return Response.redirect(`${url.origin}/login`, 302);
+                        const proxySettings = await env.bpb.get('proxySettings', {type: 'json'});
                         const isUpdated = panelVersion === proxySettings?.panelVersion;
                         if (!proxySettings || !isUpdated) await updateDataset(env);
-                        const homePage = await renderHomePage(proxySettings, warpConfigs, host, pwd);
+                        const homePage = await renderHomePage(env, host);
 
                         return new Response(homePage, {
                             status: 200,
@@ -1151,8 +1151,6 @@ function isIPv6(address) {
 function extractChainProxyParams(chainProxy) {
     let configParams = {};
 
-    if (!chainProxy) return null;
-
     if (chainProxy.startsWith('vless')) {
         const url = new URL(chainProxy.replace('vless', 'http'));
         const params = new URLSearchParams(url.search);
@@ -1193,21 +1191,6 @@ function base64ToDecimal (base64) {
     return decimalArray;
 }
 
-async function getDataset(env) {
-    let proxySettings = {};
-    let warpConfigs = [];
-
-    try {
-        proxySettings = await env.bpb.get("proxySettings", {type: 'json'});
-        warpConfigs = await env.bpb.get('warpConfigs', {type: 'json'});
-    } catch (error) {
-        console.log(error);
-        throw new Error(`An error occurred while getting KV - ${error}`);
-    }
-
-    return {proxySettings, warpConfigs}
-}
-
 async function updateDataset (env, newSettings, resetSettings) {
     let currentSettings;
 
@@ -1224,43 +1207,43 @@ async function updateDataset (env, newSettings, resetSettings) {
 
     const chainProxy = newSettings?.get('outProxy');
     const proxySettings = {
-        remoteDNS: newSettings?.get('remoteDNS') ?? currentSettings?.remoteDNS ?? 'https://8.8.8.8/dns-query',
-        localDNS: newSettings?.get('localDNS') ?? currentSettings?.localDNS ?? '8.8.8.8',
-        lengthMin: newSettings?.get('fragmentLengthMin') ?? currentSettings?.lengthMin ?? '100',
-        lengthMax: newSettings?.get('fragmentLengthMax') ?? currentSettings?.lengthMax ?? '200',
-        intervalMin: newSettings?.get('fragmentIntervalMin') ?? currentSettings?.intervalMin ?? '1',
-        intervalMax: newSettings?.get('fragmentIntervalMax') ?? currentSettings?.intervalMax ?? '1',
-        fragmentPackets: newSettings?.get('fragmentPackets') ?? currentSettings?.fragmentPackets ?? 'tlshello',
-        blockAds: newSettings?.get('block-ads') ?? currentSettings?.blockAds ?? 'false',
-        bypassIran: newSettings?.get('bypass-iran') ?? currentSettings?.bypassIran ?? 'false',
-        blockPorn: newSettings?.get('block-porn') ?? currentSettings?.blockPorn ?? 'false',
-        bypassLAN: newSettings?.get('bypass-lan') ?? currentSettings?.bypassLAN ?? 'false',
-        bypassChina: newSettings?.get('bypass-china') ?? currentSettings?.bypassChina ?? 'false',
-        blockUDP443: newSettings?.get('block-udp-443') ?? currentSettings?.blockUDP443 ?? 'false',
-        cleanIPs: newSettings?.get('cleanIPs')?.replaceAll(' ', '') ?? currentSettings?.cleanIPs ?? '',
-        enableIPv6: newSettings?.get('enableIPv6') ?? currentSettings?.enableIPv6 ?? 'true',
-        proxyIP: newSettings?.get('proxyIP')?.trim() ?? currentSettings?.proxyIP ?? '',
-        ports: newSettings?.getAll('ports[]') ?? currentSettings?.ports ?? ['443'],
-        vlessConfigs: newSettings?.get('vlessConfigs') ?? currentSettings?.vlessConfigs ?? 'true',
-        trojanConfigs: newSettings?.get('trojanConfigs') ?? currentSettings?.trojanConfigs ?? 'false',
-        outProxy: newSettings?.get('outProxy') ?? currentSettings?.outProxy ?? '',
-        outProxyParams: extractChainProxyParams(newSettings?.get('outProxy')) ?? currentSettings?.outProxyParams ?? '',
-        wowEndpoint: newSettings?.get('wowEndpoint')?.replaceAll(' ', '') ?? currentSettings?.wowEndpoint ?? 'engage.cloudflareclient.com:2408',
-        warpEndpoints: newSettings?.get('warpEndpoints')?.replaceAll(' ', '') ?? currentSettings?.warpEndpoints ?? 'engage.cloudflareclient.com:2408',
-        hiddifyNoiseMode: newSettings?.get('hiddifyNoiseMode') ?? currentSettings?.hiddifyNoiseMode ?? 'm4',
-        nikaNGNoiseMode: newSettings?.get('nikaNGNoiseMode') ?? currentSettings?.nikaNGNoiseMode ?? 'quic',
-        noiseCountMin: newSettings?.get('noiseCountMin') ?? currentSettings?.noiseCountMin ?? '10',
-        noiseCountMax: newSettings?.get('noiseCountMax') ?? currentSettings?.noiseCountMax ?? '15',
-        noiseSizeMin: newSettings?.get('noiseSizeMin') ?? currentSettings?.noiseSizeMin ?? '5',
-        noiseSizeMax: newSettings?.get('noiseSizeMax') ?? currentSettings?.noiseSizeMax ?? '10',
-        noiseDelayMin: newSettings?.get('noiseDelayMin') ?? currentSettings?.noiseDelayMin ?? '1',
-        noiseDelayMax: newSettings?.get('noiseDelayMax') ?? currentSettings?.noiseDelayMax ?? '1',
-        warpPlusLicense: newSettings?.get('warpPlusLicense') ?? currentSettings?.warpPlusLicense ?? '',
-        customCdnAddrs: newSettings?.get('customCdnAddrs')?.replaceAll(' ', '') ?? currentSettings?.customCdnAddrs ?? '',
-        customCdnHost: newSettings?.get('customCdnHost')?.trim() ?? currentSettings?.customCdnHost ?? '',
-        customCdnSni: newSettings?.get('customCdnSni')?.trim() ?? currentSettings?.customCdnSni ?? '',
-        bestVLESSTrojanInterval: newSettings?.get('bestVLESSTrojanInterval') ?? currentSettings?.bestVLESSTrojanInterval ?? '30',
-        bestWarpInterval: newSettings?.get('bestWarpInterval') ?? currentSettings?.bestWarpInterval ?? '30',
+        remoteDNS: newSettings ? newSettings.get('remoteDNS') : currentSettings ? currentSettings.remoteDNS : 'https://dns.google/dns-query',
+        localDNS: newSettings ? newSettings.get('localDNS') : currentSettings ? currentSettings.localDNS : '8.8.8.8',
+        lengthMin: newSettings ? newSettings.get('fragmentLengthMin') : currentSettings ? currentSettings.lengthMin : '100',
+        lengthMax: newSettings ? newSettings.get('fragmentLengthMax') : currentSettings ? currentSettings.lengthMax : '200',
+        intervalMin: newSettings ? newSettings.get('fragmentIntervalMin') : currentSettings ? currentSettings.intervalMin : '1',
+        intervalMax: newSettings ? newSettings.get('fragmentIntervalMax') : currentSettings ? currentSettings.intervalMax : '1',
+        fragmentPackets: newSettings ? newSettings.get('fragmentPackets') : currentSettings ? currentSettings.fragmentPackets : 'tlshello',
+        blockAds: newSettings ? newSettings.get('block-ads') : currentSettings ? currentSettings.blockAds : false,
+        bypassIran: newSettings ? newSettings.get('bypass-iran') : currentSettings ? currentSettings.bypassIran : false,
+        blockPorn: newSettings ? newSettings.get('block-porn') : currentSettings ? currentSettings.blockPorn : false,
+        bypassLAN: newSettings ? newSettings.get('bypass-lan') : currentSettings ? currentSettings.bypassLAN : false,
+        bypassChina: newSettings ? newSettings.get('bypass-china') : currentSettings ? currentSettings.bypassChina : false,
+        blockUDP443: newSettings ? newSettings.get('block-udp-443') : currentSettings ? currentSettings.blockUDP443 : false,
+        cleanIPs: newSettings ? newSettings.get('cleanIPs')?.replaceAll(' ', '') : currentSettings ? currentSettings.cleanIPs : '',
+        enableIPv6: newSettings ? newSettings.get('enableIPv6') : currentSettings ? currentSettings.enableIPv6 : true,
+        proxyIP: newSettings ? newSettings.get('proxyIP')?.trim() : currentSettings ? currentSettings.proxyIP : '',
+        ports: newSettings ? newSettings.getAll('ports[]') : currentSettings ? currentSettings.ports : ['443'],
+        vlessConfigs: newSettings ? newSettings.get('vlessConfigs') : currentSettings ? currentSettings.vlessConfigs : true,
+        trojanConfigs: newSettings ? newSettings.get('trojanConfigs') : currentSettings ? currentSettings.trojanConfigs : false,
+        outProxy: newSettings ? chainProxy : currentSettings ? currentSettings.outProxy : '',
+        outProxyParams: chainProxy ? extractChainProxyParams(chainProxy) : currentSettings ? currentSettings.outProxyParams : '',
+        wowEndpoint: newSettings ? newSettings.get('wowEndpoint')?.replaceAll(' ', '') : currentSettings ? currentSettings.wowEndpoint : 'engage.cloudflareclient.com:2408',
+        warpEndpoints: newSettings ? newSettings.get('warpEndpoints')?.replaceAll(' ', '') : currentSettings ? currentSettings.warpEndpoints : 'engage.cloudflareclient.com:2408',
+        hiddifyNoiseMode: newSettings ? newSettings.get('hiddifyNoiseMode') : currentSettings ? currentSettings.hiddifyNoiseMode : 'm4',
+        nikaNGNoiseMode: newSettings ? newSettings.get('nikaNGNoiseMode') : currentSettings ? currentSettings.nikaNGNoiseMode : 'quic',
+        noiseCountMin: newSettings ? newSettings.get('noiseCountMin') : currentSettings ? currentSettings.noiseCountMin : '10',
+        noiseCountMax: newSettings ? newSettings.get('noiseCountMax') : currentSettings ? currentSettings.noiseCountMax : '15',
+        noiseSizeMin: newSettings ? newSettings.get('noiseSizeMin') : currentSettings ? currentSettings.noiseSizeMin : '5',
+        noiseSizeMax: newSettings ? newSettings.get('noiseSizeMax') : currentSettings ? currentSettings.noiseSizeMax : '10',
+        noiseDelayMin: newSettings ? newSettings.get('noiseDelayMin') : currentSettings ? currentSettings.noiseDelayMin : '1',
+        noiseDelayMax: newSettings ? newSettings.get('noiseDelayMax') : currentSettings ? currentSettings.noiseDelayMax : '1',
+        warpPlusLicense: newSettings ? newSettings.get('warpPlusLicense') : currentSettings ? currentSettings.warpPlusLicense : '',
+        customCdnAddrs: newSettings ? newSettings.get('customCdnAddrs')?.replaceAll(' ', '') : currentSettings ? currentSettings.customCdnAddrs : '',
+        customCdnHost: newSettings ? newSettings.get('customCdnHost')?.trim() : currentSettings ? currentSettings.customCdnHost : '',
+        customCdnSni: newSettings ? newSettings.get('customCdnSni')?.trim() : currentSettings ? currentSettings.customCdnSni : '',
+        bestVLESSTrojanInterval: newSettings ? newSettings.get('bestVLESSTrojanInterval') : currentSettings ? currentSettings.bestVLESSTrojanInterval : '30',
+        bestWarpInterval: newSettings ? newSettings.get('bestWarpInterval') : currentSettings ? currentSettings.bestWarpInterval : '30',
         panelVersion: panelVersion
     };
 
@@ -1291,8 +1274,8 @@ function getRandomPath (length) {
 }
 
 async function resolveDNS (domain) {
-    const dohURLv4 = `${dohURL}?name=${encodeURIComponent(domain)}&type=A`;
-    const dohURLv6 = `${dohURL}?name=${encodeURIComponent(domain)}&type=AAAA`;
+    const dohURLv4 = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=A`;
+    const dohURLv6 = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=AAAA`;
 
     try {
         const [ipv4Response, ipv6Response] = await Promise.all([
@@ -1386,7 +1369,20 @@ async function Authenticate (request, env) {
     }
 }
 
-async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
+async function renderHomePage (env, hostName, fragConfigs) {
+    let proxySettings = {};
+    let warpConfigs = [];
+    let password = '';
+    
+    try {
+        proxySettings = await env.bpb.get('proxySettings', {type: 'json'});
+        warpConfigs = await env.bpb.get('warpConfigs', {type: 'json'});
+        password = await env.bpb.get('pwd');
+    } catch (error) {
+        console.log(error);
+        throw new Error(`An error occurred while rendering home page - ${error}`);
+    }
+
     const {
         remoteDNS, 
         localDNS, 
@@ -1429,7 +1425,7 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
     const isWarpReady = warpConfigs ? true : false;
     const isPassSet = password ? password.length >= 8 : false;
     const isWarpPlus = warpPlusLicense ? true : false;
-    let activeProtocols = (vlessConfigs === 'true') + (trojanConfigs === 'true');
+    let activeProtocols = (vlessConfigs ? 1 : 0) + (trojanConfigs ? 1 : 0);
 
     const buildPortsBlock = async () => {
         let httpPortsBlock = '';
@@ -1450,6 +1446,7 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
     const html = `
     <!DOCTYPE html>
     <html lang="en">
+
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1458,37 +1455,7 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
         <title>Collapsible Sections</title>
 		<style>
-            :root {
-                --color: black;
-                --primary-color: #09639f;
-                --secondary-color: #3498db;
-                --header-color: #09639f; 
-                --background-color: #fff;
-                --form-background-color: #f9f9f9;
-                --table-active-color: #f2f2f2;
-                --hr-text-color: #3b3b3b;
-                --lable-text-color: #333;
-                --border-color: #ddd;
-                --button-color: #09639f;
-                --input-background-color: white;
-                --header-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
-            }
-			body { font-family: system-ui; background-color: var(--background-color); color: var(--color) }
-            body.dark-mode {
-                --color: white;
-                --primary-color: #09639F;
-                --secondary-color: #3498DB;
-                --header-color: #3498DB; 
-                --background-color: #121212;
-                --form-background-color: #121212;
-                --table-active-color: #252525;
-                --hr-text-color: #D5D5D5;
-                --lable-text-color: #DFDFDF;
-                --border-color: #353535;
-                --button-color: #3498DB;
-                --input-background-color: #252525;
-                --header-shadow: 2px 2px 4px rgba(255, 255, 255, 0.25);
-            }
+			body { font-family: system-ui; }
             .material-symbols-outlined {
                 margin-left: 5px;
                 font-variation-settings:
@@ -1497,18 +1464,18 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                 'GRAD' 0,
                 'opsz' 24
             }
-            details { border-bottom: 1px solid var(--border-color); }
+            details { margin-bottom: 10px; }
             summary {
                 font-weight: bold;
                 cursor: pointer;
                 text-align: center;
                 text-wrap: nowrap;
             }
-            summary::marker { font-size: 1.5rem; color: var(--secondary-color); }
+            summary::marker { font-size: 1.5rem; color: #09639f; }
             summary h2 { display: inline-flex; }
-            h1 { font-size: 2.5em; text-align: center; color: var(--header-color); text-shadow: var(--header-shadow); }
-			h2 { margin: 30px 0; text-align: center; color: var(--hr-text-color); }
-			hr { border: 1px solid var(--border-color); margin: 20px 0; }
+            h1 { font-size: 2.5em; text-align: center; color: #09639f; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25); }
+			h2 { margin: 30px 0; text-align: center; color: #3b3b3b; }
+			hr { border: 1px solid #ddd; margin: 20px 0; }
             .footer {
                 display: flex;
                 font-weight: 600;
@@ -1520,27 +1487,29 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
             .footer button:hover, .footer button:focus { background: #3b3b3b;}
             .form-control a, a.link { text-decoration: none; }
 			.form-control {
-				margin-bottom: 20px;
+				margin-bottom: 15px;
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				align-items: baseline;
+				justify-content: flex-end;
 				font-family: Arial, sans-serif;
-                display: flex;
-                flex-direction: column;
 			}
             .form-control button {
-                background-color: var(--form-background-color);
+                background-color: white;
                 font-size: 1.1rem;
                 font-weight: 600;
-                color: var(--button-color);
-                border-color: var(--primary-color);
+                color: #09639f;
+                border-color: #09639f;
                 border: 1px solid;
             }
-            #apply {display: block; margin-top: 20px;}
+            #apply {display: block; margin-top: 30px;}
             input.button {font-weight: 600; padding: 15px 0; font-size: 1.1rem;}
 			label {
 				display: block;
 				margin-bottom: 5px;
 				font-size: 110%;
 				font-weight: 600;
-				color: var(--lable-text-color);
+				color: #333;
 			}
 			input[type="text"],
 			input[type="number"],
@@ -1550,11 +1519,11 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
 				width: 100%;
 				text-align: center;
 				padding: 10px;
-				border: 1px solid var(--border-color);
+				border: 1px solid #ddd;
 				border-radius: 5px;
 				font-size: 16px;
-				color: var(--lable-text-color);
-				background-color: var(--input-background-color);
+				color: #333;
+				background-color: #fff;
 				box-sizing: border-box;
 				transition: border-color 0.3s ease;
 			}	
@@ -1562,7 +1531,7 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
 			input[type="number"]:focus,
 			input[type="url"]:focus,
 			textarea:focus,
-			select:focus { border-color: var(--secondary-color); outline: none; }
+			select:focus { border-color: #3498db; outline: none; }
 			.button,
 			table button {
 				display: flex;
@@ -1576,18 +1545,13 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
 				letter-spacing: 1px;
 				border: none;
 				border-radius: 5px;
-				color: white;
-				background-color: var(--primary-color);
+				color: #fff;
+				background-color: #09639f;
 				cursor: pointer;
 				outline: none;
 				box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
 				transition: all 0.3s ease;
 			}
-            input[type="checkbox"] { 
-                background-color: var(--input-background-color);
-                style="margin: 0; 
-                grid-column: 2;"
-            }
             table button { margin: auto; width: auto; }
             .button.disabled {
                 background-color: #ccc;
@@ -1609,11 +1573,10 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
 				max-width: 90%;
 				margin: 0 auto;
 				padding: 20px;
-				background: var(--form-background-color);
-				border: 1px solid var(--border-color);
+				background: #f9f9f9;
+				border: 1px solid #eaeaea;
 				border-radius: 10px;
 				box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                margin-bottom: 100px;
 			}
 			.table-container { margin-top: 20px; overflow-x: auto; }
 			table { 
@@ -1624,12 +1587,12 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                 overflow: hidden;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             }
-			th, td { padding: 8px 15px; border-bottom: 1px solid var(--border-color); }
+			th, td { padding: 8px 15px; border-bottom: 1px solid #ddd; }
             td div { display: flex; align-items: center; }
-			th { background-color: var(--secondary-color); color: white; font-weight: bold; font-size: 1.1rem; width: 50%;}
-			tr:nth-child(odd) { background-color: var(--table-active-color); }
+			th { background-color: #3498db; color: white; font-weight: bold; font-size: 1.1rem; width: 50%;}
+			tr:nth-child(odd) { background-color: #f2f2f2; }
             #custom-configs-table td { text-align: center; text-wrap: nowrap; }
-			tr:hover { background-color: var(--table-active-color); }
+			tr:hover { background-color: #f1f1f1; }
             .modal {
                 display: none;
                 position: fixed;
@@ -1642,10 +1605,10 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                 background-color: rgba(0, 0, 0, 0.4);
             }
             .modal-content {
-                background-color: var(--form-background-color);
+                background-color: #f9f9f9;
                 margin: auto;
                 padding: 10px 20px 20px;
-                border: 1px solid var(--border-color);
+                border: 1px solid #eaeaea;
                 border-radius: 10px;
                 box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
                 width: 80%;
@@ -1654,45 +1617,43 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                 left: 50%;
                 transform: translate(-50%, -50%);
             }
-            .close { color: var(--color); float: right; font-size: 28px; font-weight: bold; }
+            .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
             .close:hover,
             .close:focus { color: black; text-decoration: none; cursor: pointer; }
             .form-control label {
                 display: block;
-                margin-bottom: 8px;
+                margin-bottom: 5px;
                 font-size: 110%;
                 font-weight: 600;
-                color: var(--lable-text-color);
+                color: #333;
                 line-height: 1.3em;
             }
             .form-control input[type="password"] {
                 width: 100%;
                 padding: 10px;
-                border: 1px solid var(--border-color);
+                border: 1px solid #ddd;
                 border-radius: 5px;
                 font-size: 16px;
-                color: var(--lable-text-color);
-                background-color: var(--input-background-color);
+                color: #333;
+                background-color: #fff;
                 box-sizing: border-box;
                 margin-bottom: 15px;
                 transition: border-color 0.3s ease;
             }
             .routing { 
                 display: grid;
-                justify-content: flex-start;
-                grid-template-columns: 1fr 1fr 10fr 1fr;
+                grid-template-columns: 1fr 3fr 8fr 1fr;
+                justify-content: center;
                 margin-bottom: 15px;
             }
-            .form-control .routing input { grid-column: 2 / 3; }
-            #routing-rules.form-control { display: grid; grid-template-columns: 1fr 1fr; }
             .routing label {
                 text-align: left;
-                margin: 0 0 0 10px;
+                margin: 0;
                 font-weight: 400;
                 font-size: 100%;
                 text-wrap: nowrap;
             }
-            .form-control input[type="password"]:focus { border-color: var(--secondary-color); outline: none; }
+            .form-control input[type="password"]:focus { border-color: #3498db; outline: none; }
             #passwordError { color: red; margin-bottom: 10px; }
             .symbol { margin-right: 8px; }
             .modalQR {
@@ -1706,43 +1667,15 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                 overflow: auto;
                 background-color: rgba(0, 0, 0, 0.4);
             }
-            .floating-button {
-                position: fixed;
-                bottom: 20px;
-                left: 20px;
-                background-color: var(--color);
-                color: white;
-                border: none;
-                border-radius: 50%;
-                width: 60px;
-                height: 60px;
-                font-size: 24px;
-                cursor: pointer;
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-                transition: background-color 0.3s, transform 0.3s;
-            }
-            .floating-button:hover { transform: scale(1.1); }
-            .min-max { display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline; width: 100%; }
-            .min-max span { text-align: center; white-space: pre; }
-            .input-with-select { width: 100%; }
-            body.dark-mode .floating-button { background-color: var(--color); }
-            body.dark-mode .floating-button:hover { transform: scale(1.1); }
             @media only screen and (min-width: 768px) {
                 .form-container { max-width: 70%; }
-                .form-control { 
-                    margin-bottom: 15px;
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    align-items: baseline;
-                    justify-content: flex-end;
-                    font-family: Arial, sans-serif;
-                }
-                #apply { display: block; margin: 20px auto 0 auto; max-width: 50%; }
+                #apply { display: block; margin: 30px auto 0 auto; max-width: 50%; }
                 .modal-content { width: 30% }
-                .routing { display: grid; grid-template-columns: 4fr 1fr 3fr 4fr; }
+                .routing { grid-template-columns: 4fr 2fr 6fr 4fr; }
             }
 		</style>
 	</head>
+	
 	<body>
 		<h1>BPB Panel <span style="font-size: smaller;">${panelVersion}</span> 💦</h1>
 		<div class="form-container">
@@ -1773,10 +1706,10 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                     </div>
                     <div class="form-control">
                         <label>🔎 IP Scanner</label>
-                        <a href="https://scanner.github1.cloud/" id="scanner" name="scanner" target="_blank" style="width: 100%;">
+                        <a href="https://scanner.github1.cloud/" id="scanner" name="scanner" target="_blank">
                             <button type="button" class="button">
                                 Scan now
-                                <span class="material-symbols-outlined">open_in_new</span>
+                                <span class="material-symbols-outlined" style="margin-left: 5px;">open_in_new</span>
                             </button>
                         </a>
                     </div>
@@ -1784,21 +1717,21 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                         <label for="enableIPv6">🔛 IPv6 Configs</label>
                         <div class="input-with-select">
                             <select id="enableIPv6" name="enableIPv6">
-                                <option value="true" ${enableIPv6 === 'true' ? 'selected' : ''}>Enabled</option>
-                                <option value="false" ${enableIPv6 !== 'true' ? 'selected' : ''}>Disabled</option>
+                                <option value="true" ${enableIPv6 ? 'selected' : ''}>Enabled</option>
+                                <option value="" ${!enableIPv6 ? 'selected' : ''}>Disabled</option>
                             </select>
                         </div>
                     </div>
                     <div class="form-control">
-                        <label for="customCdnAddrs">💀 Custom CDN Addrs</label>
+                        <label for="customCdnAddrs">💀 Custom Addr</label>
                         <input type="text" id="customCdnAddrs" name="customCdnAddrs" value="${customCdnAddrs.replaceAll(",", " , ")}">
                     </div>
                     <div class="form-control">
-                        <label for="customCdnHost">💀 Custom CDN Host</label> 
+                        <label for="customCdnHost">💀 Custom Host</label> 
                         <input type="text" id="customCdnHost" name="customCdnHost" value="${customCdnHost}">
                     </div>
                     <div class="form-control">
-                        <label for="customCdnSni">💀 Custom CDN SNI</label>
+                        <label for="customCdnSni">💀 Custom SNI</label>
                         <input type="text" id="customCdnSni" name="customCdnSni" value="${customCdnSni}">
                     </div>
                     <div class="form-control">
@@ -1807,19 +1740,19 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                     </div>
                     <div class="form-control" style="padding-top: 10px;">
                         <label>⚙️ Protocols</label>
-                        <div style="width: 100%; display: grid; grid-template-columns: 1fr 1fr; align-items: baseline; margin-top: 10px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; align-items: baseline; margin-top: 10px;">
                             <div style = "display: flex; justify-content: center; align-items: center;">
-                                <input type="checkbox" id="vlessConfigs" name="vlessConfigs" onchange="handleProtocolChange(event)" value="true" ${vlessConfigs === 'true' ? 'checked' : ''}>
+                                <input type="checkbox" id="vlessConfigs" name="vlessConfigs" onchange="handleProtocolChange(event)" style="margin: 0; grid-column: 2;" value="true" ${vlessConfigs ? 'checked' : ''}>
                                 <label for="vlessConfigs" style="margin: 0 5px; font-weight: normal; font-size: unset;">VLESS</label>
                             </div>
                             <div style = "display: flex; justify-content: center; align-items: center;">
-                                <input type="checkbox" id="trojanConfigs" name="trojanConfigs" onchange="handleProtocolChange(event)" value="true" ${trojanConfigs === 'true' ? 'checked' : ''}>
+                                <input type="checkbox" id="trojanConfigs" name="trojanConfigs" onchange="handleProtocolChange(event)" style="margin: 0; grid-column: 2;" value="true" ${trojanConfigs ? 'checked' : ''}>
                                 <label for="trojanConfigs" style="margin: 0 5px; font-weight: normal; font-size: unset;">Trojan</label>
                             </div>
                         </div>
                     </div>
                     <div class="table-container">
-                        <table id="ports-block">
+                        <table id="frag-sub-table">
                             <tr>
                                 <th style="text-wrap: nowrap; background-color: gray;">Config type</th>
                                 <th style="text-wrap: nowrap; background-color: gray;">Ports</th>
@@ -1839,18 +1772,18 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                     <summary><h2>FRAGMENT ⚙️</h2></summary>	
                     <div class="form-control">
                         <label for="fragmentLengthMin">📐 Length</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="fragmentLengthMin" name="fragmentLengthMin" value="${lengthMin}" min="10" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="fragmentLengthMax" name="fragmentLengthMax" value="${lengthMax}" max="500" required>
                         </div>
                     </div>
                     <div class="form-control">
                         <label for="fragmentIntervalMin">🕞 Interval</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="fragmentIntervalMin" name="fragmentIntervalMin"
                                 value="${intervalMin}" min="1" max="30" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="fragmentIntervalMax" name="fragmentIntervalMax"
                                 value="${intervalMax}" min="1" max="30" required>
                         </div>
@@ -1869,7 +1802,36 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                     </div>
                 </details>
                 <details>
-                    <summary><h2>WARP GENERAL ⚙️</h2></summary>
+                    <summary><h2>ROUTING ⚙️</h2></summary>
+                    <div class="form-control" style="margin-bottom: 20px;">			
+                        <div class="routing">
+                            <input type="checkbox" id="block-ads" name="block-ads" style="margin: 0; grid-column: 2;" value="true" ${blockAds ? 'checked' : ''}>
+                            <label for="block-ads">Block Ads.</label>
+                        </div>
+                        <div class="routing">
+                            <input type="checkbox" id="bypass-iran" name="bypass-iran" style="margin: 0; grid-column: 2;" value="true" ${bypassIran ? 'checked' : ''}>
+                            <label for="bypass-iran">Bypass Iran</label>
+                        </div>
+                        <div class="routing">
+                            <input type="checkbox" id="block-porn" name="block-porn" style="margin: 0; grid-column: 2;" value="true" ${blockPorn ? 'checked' : ''}>
+                            <label for="block-porn">Block Porn</label>
+                        </div>
+                        <div class="routing">
+                            <input type="checkbox" id="bypass-lan" name="bypass-lan" style="margin: 0; grid-column: 2;" value="true" ${bypassLAN ? 'checked' : ''}>
+                            <label for="bypass-lan">Bypass LAN</label>
+                        </div>
+                        <div class="routing">
+                            <input type="checkbox" id="bypass-china" name="bypass-china" style="margin: 0; grid-column: 2;" value="true" ${bypassChina ? 'checked' : ''}>
+                            <label for="bypass-china">Bypass China</label>
+                        </div>
+                        <div class="routing">
+                            <input type="checkbox" id="block-udp-443" name="block-udp-443" style="margin: 0; grid-column: 2;" value="true" ${blockUDP443 ? 'checked' : ''}>
+                            <label for="block-udp-443">Block QUIC</label>
+                        </div>
+                    </div>
+                </details>
+                <details>
+                    <summary><h2>WARP ⚙️</h2></summary>
                     <div class="form-control">
                         <label for="wowEndpoint">✨ WoW Endpoints</label>
                         <input type="text" id="wowEndpoint" name="wowEndpoint" value="${wowEndpoint.replaceAll(",", " , ")}" required>
@@ -1919,61 +1881,32 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                     </div>
                     <div class="form-control">
                         <label for="noiseCountMin">🎚️ Noise Count</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="noiseCountMin" name="noiseCountMin"
                                 value="${noiseCountMin}" min="1" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="noiseCountMax" name="noiseCountMax"
                                 value="${noiseCountMax}" min="1" required>
                         </div>
                     </div>
                     <div class="form-control">
                         <label for="noiseSizeMin">📏 Noise Size</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="noiseSizeMin" name="noiseSizeMin"
                                 value="${noiseSizeMin}" min="1" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="noiseSizeMax" name="noiseSizeMax"
                                 value="${noiseSizeMax}" min="1" required>
                         </div>
                     </div>
                     <div class="form-control">
                         <label for="noiseDelayMin">🕞 Noise Delay</label>
-                        <div class="min-max">
+                        <div style="display: grid; grid-template-columns: 1fr auto 1fr; align-items: baseline;">
                             <input type="number" id="noiseDelayMin" name="noiseDelayMin"
                                 value="${noiseDelayMin}" min="1" required>
-                            <span> - </span>
+                            <span style="text-align: center; white-space: pre;"> - </span>
                             <input type="number" id="noiseDelayMax" name="noiseDelayMax"
                                 value="${noiseDelayMax}" min="1" required>
-                        </div>
-                    </div>
-                </details>
-                <details>
-                    <summary><h2>ROUTING RULES ⚙️</h2></summary>
-                    <div id="routing-rules" class="form-control" style="margin-bottom: 20px;">			
-                        <div class="routing">
-                            <input type="checkbox" id="block-ads" name="block-ads" value="true" ${blockAds === 'true' ? 'checked' : ''}>
-                            <label for="block-ads">Block Ads.</label>
-                        </div>
-                        <div class="routing">
-                            <input type="checkbox" id="bypass-iran" name="bypass-iran" value="true" ${bypassIran === 'true' ? 'checked' : ''}>
-                            <label for="bypass-iran">Bypass Iran</label>
-                        </div>
-                        <div class="routing">
-                            <input type="checkbox" id="block-porn" name="block-porn" value="true" ${blockPorn === 'true' ? 'checked' : ''}>
-                            <label for="block-porn">Block Porn</label>
-                        </div>
-                        <div class="routing">
-                            <input type="checkbox" id="bypass-lan" name="bypass-lan" value="true" ${bypassLAN === 'true' ? 'checked' : ''}>
-                            <label for="bypass-lan">Bypass LAN</label>
-                        </div>
-                        <div class="routing">
-                            <input type="checkbox" id="block-udp-443" name="block-udp-443" value="true" ${blockUDP443 === 'true' ? 'checked' : ''}>
-                            <label for="block-udp-443">Block QUIC</label>
-                        </div>
-                        <div class="routing">
-                            <input type="checkbox" id="bypass-china" name="bypass-china" value="true" ${bypassChina === 'true' ? 'checked' : ''}>
-                            <label for="bypass-china">Bypass China</label>
                         </div>
                     </div>
                 </details>
@@ -1981,7 +1914,7 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
 					<div style="grid-column: 2; width: 100%; display: inline-flex;">
 						<input type="submit" id="applyButton" style="margin-right: 10px;" class="button disabled" value="APPLY SETTINGS 💥" form="configForm">
                         <button type="button" id="resetSettings" style="background: none; margin: 0; border: none; cursor: pointer;">
-                            <i class="fa fa-refresh fa-2x fa-border" style="border-radius: .2em; border-color: var(--border-color);" aria-hidden="true"></i>
+                            <i class="fa fa-refresh fa-2x fa-border" style="border-radius: .2em;" aria-hidden="true"></i>
                         </button>
 					</div>
 				</div>
@@ -2114,7 +2047,7 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                 <table id="frag-sub-table">
                     <tr>
                         <th style="text-wrap: nowrap;">Application</th>
-                        <th style="text-wrap: nowrap;">Subscription</th>
+                        <th style="text-wrap: nowrap;">Fragment Subscription</th>
                     </tr>
                     <tr>
                         <td style="text-wrap: nowrap;">
@@ -2330,16 +2263,13 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
             <hr>
             <div class="footer">
                 <i class="fa fa-github" style="font-size:36px; margin-right: 10px;"></i>
-                <a class="link" href="https://github.com/bia-pain-bache/BPB-Worker-Panel" style="color: var(--color); text-decoration: underline;" target="_blank">Github</a>
+                <a class="link" href="https://github.com/bia-pain-bache/BPB-Worker-Panel" target="_blank">Github</a>
                 <button id="openModalBtn" class="button">Change Password</button>
-                <button type="button" id="logout" style="background: none; color: var(--color); margin: 0; border: none; cursor: pointer;">
+                <button type="button" id="logout" style="background: none; margin: 0; border: none; cursor: pointer;">
                     <i class="fa fa-power-off fa-2x" aria-hidden="true"></i>
                 </button>
             </div>
         </div>
-        <button id="darkModeToggle" class="floating-button">
-            <i id="modeIcon" class="fa fa-2x fa-adjust" style="color: var(--background-color);" aria-hidden="true"></i>
-        </button>
         
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl.min.js"></script>
@@ -2363,9 +2293,7 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
             let modalQR = document.getElementById('myQRModal');
             let qrcodeContainer = document.getElementById('qrcode-container');
             let forcedPassChange = false;
-            const darkModeToggle = document.getElementById('darkModeToggle');
 
-            localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
             ${isPassSet && !isWarpReady} && await getWarpConfigs();
                   
             const hasFormDataChanged = () => {
@@ -2450,14 +2378,6 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                     qrcodeContainer.lastElementChild.remove();
                 }
             }
-            darkModeToggle.addEventListener('click', () => {
-                const isDarkMode = document.body.classList.toggle('dark-mode');
-                if (isDarkMode) {
-                    localStorage.setItem('darkMode', 'enabled');
-                } else {
-                    localStorage.setItem('darkMode', 'disabled');                
-                }
-            });
 
             if (${!isPassSet}) {
                 forcedPassChange = true;
@@ -2637,9 +2557,6 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
             const checkedPorts = Array.from(document.querySelectorAll('input[id^="port-"]:checked')).map(input => input.id.split('-')[1]);
             const validEndpoint = /^(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)+[a-zA-Z]{2,}|(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|\\[(?:[a-fA-F0-9]{1,4}:){7}[a-fA-F0-9]{1,4}\\]|\\[(?:[a-fA-F0-9]{1,4}:){1,7}:\\]|\\[(?:[a-fA-F0-9]{1,4}:){1,6}:[a-fA-F0-9]{1,4}\\]|\\[(?:[a-fA-F0-9]{1,4}:){1,5}(?::[a-fA-F0-9]{1,4}){1,2}\\]|\\[(?:[a-fA-F0-9]{1,4}:){1,4}(?::[a-fA-F0-9]{1,4}){1,3}\\]|\\[(?:[a-fA-F0-9]{1,4}:){1,3}(?::[a-fA-F0-9]{1,4}){1,4}\\]|\\[(?:[a-fA-F0-9]{1,4}:){1,2}(?::[a-fA-F0-9]{1,4}){1,5}\\]|\\[[a-fA-F0-9]{1,4}:(?::[a-fA-F0-9]{1,4}){1,6}\\]|\\[:(?::[a-fA-F0-9]{1,4}){1,7}\\]|\\[::(?::[a-fA-F0-9]{1,4}){0,7}\\]):(?:[0-9]{1,5})$/;
             checkedPorts.forEach(port => formData.append('ports[]', port));
-            configForm.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-                !formData.has(checkbox.name) && formData.append(checkbox.name, 'false');    
-            });
 
             const invalidIPs = [...cleanIPs, proxyIP, ...customCdnAddrs, customCdnHost, customCdnSni]?.filter(value => {
                 if (value !== "") {
@@ -2684,7 +2601,6 @@ async function renderHomePage (proxySettings, warpConfigs, hostName, password) {
                 alert('⛔ All "Custom" fields should be filled! 🫤');               
                 return false;
             }
-
 
             try {
                 document.body.style.cursor = 'wait';
@@ -2803,38 +2719,14 @@ async function renderLoginPage () {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Login</title>
     <style>
-        :root {
-            --color: black;
-            --primary-color: #09639f;
-            --header-color: #09639f; 
-            --background-color: #fff;
-            --form-background-color: #f9f9f9;
-            --lable-text-color: #333;
-            --h2-color: #3b3b3b;
-            --border-color: #ddd;
-            --input-background-color: white;
-            --header-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
-        }
+
         html, body { height: 100%; margin: 0; }
         body {
             font-family: system-ui;
-            background-color: var(--background-color);
+            background-color: #f9f9f9;
             position: relative;
             overflow: hidden;
         }
-        body.dark-mode {
-            --color: white;
-            --primary-color: #09639F;
-            --header-color: #3498DB; 
-            --background-color: #121212;
-            --form-background-color: #121212;
-            --lable-text-color: #DFDFDF;
-            --h2-color: #D5D5D5;
-            --border-color: #353535;
-            --input-background-color: #252525;
-            --header-shadow: 2px 2px 4px rgba(255, 255, 255, 0.25);
-        }
-        html, body { height: 100%; margin: 0; }
         .container {
             position: absolute;
             top: 50%;
@@ -2842,11 +2734,11 @@ async function renderLoginPage () {
             transform: translate(-50%, -50%);
             width: 90%;
         }
-        h1 { font-size: 2.5rem; text-align: center; color: var(--header-color); margin: 0 auto 30px; text-shadow: var(--header-shadow); }        
-        h2 { text-align: center; color: var(--h2-color) }
+        h1 { font-size: 2.5rem; text-align: center; color: #09639f; margin: 0 auto 30px; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25); }        
+        h2 {text-align: center;}
         .form-container {
-            background: var(--form-background-color);
-            border: 1px solid var(--border-color);
+            background: #f9f9f9;
+            border: 1px solid #eaeaea;
             border-radius: 10px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             padding: 20px;
@@ -2858,16 +2750,15 @@ async function renderLoginPage () {
             padding-right: 20px;
             font-size: 110%;
             font-weight: 600;
-            color: var(--lable-text-color);
+            color: #333;
         }
         input[type="text"],
         input[type="password"] {
             width: 100%;
             padding: 10px;
-            border: 1px solid var(--border-color);
+            border: 1px solid #ddd;
             border-radius: 5px;
-            color: var(--lable-text-color);
-            background-color: var(--input-background-color);
+            color: #333;
         }
         button {
             display: block;
@@ -2877,19 +2768,12 @@ async function renderLoginPage () {
             font-weight: 600;
             border: none;
             border-radius: 5px;
-            color: white;
-            background-color: var(--primary-color);
+            color: #fff;
+            background-color: #09639f;
             cursor: pointer;
             transition: background-color 0.3s ease;
         }
-        .button:hover,
-        button:focus {
-            background-color: #2980b9;
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
-            transform: translateY(-2px);
-        }
-        button.button:hover { color: white; }
-        .button:active { transform: translateY(1px); box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3); }
+        button:hover {background-color: #2980b9;}
         @media only screen and (min-width: 768px) {
             .container { width: 30%; }
         }
@@ -2911,9 +2795,6 @@ async function renderLoginPage () {
             </div>
         </div>
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
-        });
         document.getElementById('loginForm').addEventListener('submit', async (event) => {
             event.preventDefault();
             const password = document.getElementById('password').value;
@@ -2954,31 +2835,16 @@ function renderErrorPage (message, error, refer) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Error Page</title>
         <style>
-            :root {
-                --color: black;
-                --header-color: #09639f; 
-                --background-color: #fff;
-                --border-color: #ddd;
-                --header-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25);
-            }
-            body, html {
+            body,
+            html {
                 height: 100%;
-                width: 100%;
                 margin: 0;
                 display: flex;
                 justify-content: center;
                 align-items: center;
                 font-family: system-ui;
-                color: var(--color);
-                background-color: var(--background-color);
             }
-            body.dark-mode {
-                --color: white;
-                --header-color: #3498DB; 
-                --background-color: #121212;
-                --header-shadow: 2px 2px 4px rgba(255, 255, 255, 0.25);          
-            }
-            h1 { font-size: 2.5rem; text-align: center; color: var(--header-color); text-shadow: var(--header-shadow); }
+            h1 { font-size: 2.5rem; text-align: center; color: #09639f; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.25); }
             #error-container { text-align: center; }
         </style>
     </head>
@@ -2993,18 +2859,21 @@ function renderErrorPage (message, error, refer) {
                 <p><b>${error ? `⚠️ ${error.stack.toString()}` : ''}</b></p>
             </div>
         </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            localStorage.getItem('darkMode') === 'enabled' && document.body.classList.add('dark-mode');
-        });
-    </script>
     </body>
     </html>`;
 }
 
-async function fetchWgConfig (env, proxySettings, warpKeys) {
+async function fetchWgConfig (env, warpKeys) {
     let warpConfigs = [];
+    let proxySettings = {};
     const apiBaseUrl = 'https://api.cloudflareclient.com/v0a4005/reg';
+
+    try {
+        proxySettings = await env.bpb.get('proxySettings', {type: 'json'});
+    } catch (error) {
+        console.log(error);
+        throw new Error(`An error occurred while getting warp configs - ${error}`);
+    }
 
     const { warpPlusLicense } = proxySettings;
 
@@ -3062,7 +2931,7 @@ async function fetchWgConfig (env, proxySettings, warpKeys) {
     await env.bpb.put('warpConfigs', JSON.stringify(warpConfigs));
 }
 
-async function buildWarpOutbounds (client, proxySettings, warpConfigs) {
+async function buildWarpOutbounds (env, client, proxySettings, warpConfigs) {
     let warpOutbounds = [];
     const { 
 		warpEndpoints, 
@@ -3087,7 +2956,7 @@ async function buildWarpOutbounds (client, proxySettings, warpConfigs) {
     warpEndpoints.split(',').forEach( (endpoint, index) => {
         
         if (client === 'xray' || client === 'nikang') {
-            let xrayOutbound = buildXrayWarpOutbound(`prox-${index + 1}`, warpIPv6, privateKey, publicKey, endpoint, reserved, '');
+            let xrayOutbound = buildXrayWarpOutbound(`warp-${index + 1}`, warpIPv6, privateKey, publicKey, endpoint, reserved, '');
             client === 'nikang' && Object.assign(xrayOutbound.settings, {
                 wnoise: nikaNGNoiseMode,
                 wnoisecount: fakePackets,
@@ -3129,7 +2998,7 @@ async function buildWarpOutbounds (client, proxySettings, warpConfigs) {
     return warpOutbounds;
 }
 
-async function buildWoWOutbounds (client, proxySettings, warpConfigs) {
+async function buildWoWOutbounds (env, client, proxySettings, warpConfigs) {
     let wowOutbounds = [];
     const { 
 		wowEndpoint, 
@@ -3155,13 +3024,13 @@ async function buildWoWOutbounds (client, proxySettings, warpConfigs) {
 
             if (client === 'xray' || client === 'nikang') {
                 let xrayOutbound = buildXrayWarpOutbound(
-                    i === 1 ? `proxy` : `chain`,
+                    i === 1 ? `warp-ir_${index + 1}` : `warp-out_${index + 1}`, 
                     warpIPv6, 
                     privateKey, 
                     publicKey, 
                     endpoint, 
                     reserved, 
-                    i === 1 ? '' : `proxy`
+                    i === 1 ? '' : `warp-ir_${index + 1}`
                 );
 
                 (client === 'nikang' && i === 1) && Object.assign(xrayOutbound.settings, {
@@ -3177,16 +3046,16 @@ async function buildWoWOutbounds (client, proxySettings, warpConfigs) {
             if (client === 'singbox' || client === 'hiddify') {
                 let singboxOutbound = buildSingboxWarpOutbound(
                     i === 1
-                        ? `proxy-${index + 1}` 
-                        : client === 'hiddify' 
-                            ? `💦 WoW Pro ${index + 1} 🌍` 
-                            : `💦 WoW ${index + 1} 🌍` , 
+                    ? `warp-ir_${index + 1}` 
+                    : client === 'hiddify' 
+                        ? `💦 WoW Pro ${index + 1} 🌍` 
+                        : `💦 WoW ${index + 1} 🌍` , 
                     warpIPv6, 
                     privateKey, 
                     publicKey, 
                     endpoint, 
                     reserved, 
-                    i === 0 ? `proxy-${index + 1}` : ''
+                    i === 0 ? `warp-ir_${index + 1}` : ''
                 );
                 
                 (client === 'hiddify' && i === 1) && Object.assign(singboxOutbound, {
@@ -3201,13 +3070,13 @@ async function buildWoWOutbounds (client, proxySettings, warpConfigs) {
 
             if (client === 'clash') {
                 let clashOutbound = buildClashWarpOutbound(
-                    i === 1 ? `proxy-${index + 1}` : `💦 WoW ${index + 1} 🌍`, 
+                    i === 1 ? `warp-ir_${index + 1}` : `💦 WoW ${index + 1} 🌍`, 
                     warpIPv6, 
                     privateKey, 
                     publicKey, 
                     endpoint,
                     reserved, 
-                    i === 0 ? `proxy-${index + 1}` : ''
+                    i === 0 ? `warp-ir_${index + 1}` : ''
                 );
 
                 wowOutbounds.push(clashOutbound);
@@ -3218,12 +3087,10 @@ async function buildWoWOutbounds (client, proxySettings, warpConfigs) {
     return wowOutbounds;
 }
 
-async function buildXrayDNSObject (proxySettings, isWorkerLess, isChain, isWarp) {
-    const { remoteDNS, localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn } = proxySettings;
-    const isBypass = bypassIran === 'true' || bypassLAN === 'true' || bypassChina === 'true';
-    const finalRemoteDNS = isWarp ? '1.1.1.1' : isWorkerLess ? 'https://cloudflare-dns.com/dns-query' : remoteDNS;
+async function buildXrayDNSObject (remoteDNS, localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn, isWorkerLess, isChain) {
+
     const dohPattern = /^(?:[a-zA-Z]+:\/\/)?([^:\/\s?]+)/;
-    const dohMatch = finalRemoteDNS.match(dohPattern);
+    const dohMatch = remoteDNS.match(dohPattern);
     const dohHost = dohMatch ? dohMatch[1] : null;
     const isDOHDomain = isDomain(dohHost);
     let dnsObject = {
@@ -3231,7 +3098,7 @@ async function buildXrayDNSObject (proxySettings, isWorkerLess, isChain, isWarp)
             "domain:googleapis.cn": ["googleapis.com"]
         },
         servers: [
-            finalRemoteDNS
+            remoteDNS
         ],
         tag: "dns",
     };
@@ -3259,12 +3126,12 @@ async function buildXrayDNSObject (proxySettings, isWorkerLess, isChain, isWarp)
         ];
     }
 
-    if (blockAds === 'true') {
+    if (blockAds) {
         dnsObject.hosts["geosite:category-ads-all"] = ["127.0.0.1"];
         dnsObject.hosts["geosite:category-ads-ir"] = ["127.0.0.1"];
     }
 
-    if (blockPorn === 'true') {
+    if (blockPorn) {
         dnsObject.hosts["geosite:category-porn"] = ["127.0.0.1"];
     }
 
@@ -3273,24 +3140,23 @@ async function buildXrayDNSObject (proxySettings, isWorkerLess, isChain, isWarp)
         domains: []
     });
 
-    if (!isWorkerLess && localDNS !== 'localhost' && isBypass) {
+    if (!isWorkerLess && localDNS !== 'localhost' && (bypassIran || bypassChina || bypassLAN)) {
         let localDNSServer = {
             address: localDNS,
             domains: [],
             expectIPs: []
         };
-        bypassLAN === 'true' && localDNSServer.domains.push("geosite:private") && localDNSServer.expectIPs.push("geoip:private");
-        bypassIran === 'true' && localDNSServer.domains.push("geosite:category-ir") && localDNSServer.expectIPs.push("geoip:ir"); 
-        bypassChina === 'true' && localDNSServer.domains.push("geosite:cn") && localDNSServer.expectIPs.push("geoip:cn");
+        bypassLAN && localDNSServer.domains.push("geosite:private") && localDNSServer.expectIPs.push("geoip:private");
+        bypassIran && localDNSServer.domains.push("geosite:category-ir") && localDNSServer.expectIPs.push("geoip:ir"); 
+        bypassChina && localDNSServer.domains.push("geosite:cn") && localDNSServer.expectIPs.push("geoip:cn");
         dnsObject.servers.push(localDNSServer);
     }
 
     return dnsObject;
 }
 
-function buildXrayRoutingRules (proxySettings, isChain, isBalancer, isWorkerLess, isWarp) {
-    const { localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443 } = proxySettings;
-    const isBypass = bypassIran === 'true' || bypassLAN === 'true' || bypassChina === 'true';
+function buildXrayRoutingRules (localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, isChain, isBalancer, isWorkerLess, isWarp) {
+    const isBypass = bypassIran || bypassLAN || bypassChina;
     let rules = [
         {
             inboundTag: [
@@ -3310,7 +3176,7 @@ function buildXrayRoutingRules (proxySettings, isChain, isBalancer, isWorkerLess
         }
     ];
 
-    if (!isWorkerLess && (isChain || (localDNS !== 'localhost' && isBypass))) rules.push({
+    if (isChain || (localDNS !== 'localhost' && isBypass)) rules.push({
         ip: [localDNS === 'localhost' ? '8.8.8.8' : localDNS],
         port: "53",
         outboundTag: "direct",
@@ -3331,26 +3197,26 @@ function buildXrayRoutingRules (proxySettings, isChain, isBalancer, isWorkerLess
         };
 
         if (!isWorkerLess) {
-            bypassLAN === 'true' && domainRule.domain.push("geosite:private") && ipRule.ip.push("geoip:private");
-            bypassIran === 'true' && domainRule.domain.push("geosite:category-ir") && ipRule.ip.push("geoip:ir");
-            bypassChina === 'true' && domainRule.domain.push("geosite:cn") && ipRule.ip.push("geoip:cn");
+            bypassLAN && domainRule.domain.push("geosite:private") && ipRule.ip.push("geoip:private");
+            bypassIran && domainRule.domain.push("geosite:category-ir") && ipRule.ip.push("geoip:ir");
+            bypassChina && domainRule.domain.push("geosite:cn") && ipRule.ip.push("geoip:cn");
             rules.push(domainRule, ipRule);
         }
     }
 
-    if (blockAds === 'true' || blockPorn === 'true') {
+    if (blockAds || blockPorn) {
         let rule = {
             domain: [],
             outboundTag: "block",
             type: "field",
         };
 
-        blockAds === 'true' && rule.domain.push("geosite:category-ads-all", "geosite:category-ads-ir");
-        blockPorn === 'true' && rule.domain.push("geosite:category-porn");
+        blockAds && rule.domain.push("geosite:category-ads-all", "geosite:category-ads-ir");
+        blockPorn && rule.domain.push("geosite:category-porn");
         rules.push(rule);
     }
 
-    blockUDP443 === 'true' && isWarp && !isWorkerLess && rules.push({
+    blockUDP443 && isWarp && !isWorkerLess && rules.push({
         network: "udp",
         port: "443",
         outboundTag: "block",
@@ -3366,7 +3232,7 @@ function buildXrayRoutingRules (proxySettings, isChain, isBalancer, isWorkerLess
     } else  {
         rules.push({
             network: isWarp || isWorkerLess ? "tcp,udp" : "tcp",
-            outboundTag: isChain ? "chain" : isWorkerLess ? "fragment" : "proxy",
+            outboundTag: isChain ? "out" : isWorkerLess ? "fragment" : "proxy",
             type: "field"
         });
     }
@@ -3525,7 +3391,7 @@ function buildXrayChainOutbound(chainProxyParams) {
                 xudpConcurrency: 16,
                 xudpProxyUDP443: "reject"
             },
-            tag: "chain"
+            tag: "out"
         };
     }
 
@@ -3563,7 +3429,7 @@ function buildXrayChainOutbound(chainProxyParams) {
                 tcpNoDelay: true
             }
         },
-        tag: "chain"
+        tag: "out"
     };
     
     if (security === 'tls') {
@@ -3632,41 +3498,61 @@ function buildXrayChainOutbound(chainProxyParams) {
     return proxyOutbound;
 }
 
-async function buildXrayWorkerLessConfig(proxySettings) {
-    const { lengthMin,  lengthMax,  intervalMin,  intervalMax, fragmentPackets } = proxySettings;
+async function buildWorkerLessConfig(remoteDNS, localDNS, lengthMin,  lengthMax,  intervalMin,  intervalMax, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443) {
     let fakeOutbound = buildXrayVLESSOutbound('fake-outbound', 'google.com', 443, userID, 'google.com', '');
     delete fakeOutbound.streamSettings.sockopt;
     fakeOutbound.streamSettings.wsSettings.path = '/';
     let fragConfig = structuredClone(xrayConfigTemp);
     fragConfig.remarks  = '💦 BPB F - WorkerLess ⭐'
-    fragConfig.dns = await buildXrayDNSObject(proxySettings, true);
+    fragConfig.dns = await buildXrayDNSObject('https://cloudflare-dns.com/dns-query', localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn, true);
     fragConfig.outbounds[0].settings.domainStrategy = 'UseIP';
     fragConfig.outbounds[0].settings.fragment.length = `${lengthMin}-${lengthMax}`;
     fragConfig.outbounds[0].settings.fragment.interval = `${intervalMin}-${intervalMax}`;
-    fragConfig.outbounds[0].settings.fragment.packets = fragmentPackets;
-    fragConfig.outbounds.push(fakeOutbound);
-    fragConfig.routing.rules = buildXrayRoutingRules(proxySettings, false, false, true, false);
+    fragConfig.outbounds = [
+        {...fragConfig.outbounds[0]}, 
+        {...fakeOutbound}, 
+        {...fragConfig.outbounds[1]}, 
+        {...fragConfig.outbounds[2]}, 
+        {...fragConfig.outbounds[3]}
+    ];
+    fragConfig.routing.rules = buildXrayRoutingRules(localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, false, false, true, false);
     delete fragConfig.routing.balancers;
     delete fragConfig.observatory;
 
     return fragConfig;
 }
 
-async function getXrayFragmentConfigs(env, proxySettings, hostName) {
+async function getXrayFragmentConfigs(env, hostName) {
     let Configs = [];
     let outbounds = [];
+    let proxySettings = {};
     let chainProxy;
     let proxyIndex = 1;
     const bestFragValues = ['10-20', '20-30', '30-40', '40-50', '50-60', '60-70', 
                             '70-80', '80-90', '90-100', '10-30', '20-40', '30-50', 
                             '40-60', '50-70', '60-80', '70-90', '80-100', '100-200'];
 
+    try {
+        proxySettings = await env.bpb.get("proxySettings", {type: 'json'});
+    } catch (error) {
+        console.log(error);
+        throw new Error(`An error occurred while getting fragment configs - ${error}`);
+    }
+
     const {
+        remoteDNS, 
+        localDNS, 
         lengthMin, 
         lengthMax, 
         intervalMin, 
         intervalMax,
         fragmentPackets,
+        blockAds,
+        bypassIran,
+        blockPorn,
+        bypassLAN,
+        bypassChina,
+        blockUDP443, 
         cleanIPs,
         proxyIP,
         outProxy,
@@ -3694,21 +3580,21 @@ async function getXrayFragmentConfigs(env, proxySettings, hostName) {
     }
     
     let config = structuredClone(xrayConfigTemp);
-    config.dns = await buildXrayDNSObject(proxySettings, false, chainProxy, false);
+    config.dns = await buildXrayDNSObject(remoteDNS, localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn, false, chainProxy);
     config.outbounds[0].settings.fragment.length = `${lengthMin}-${lengthMax}`;
     config.outbounds[0].settings.fragment.interval = `${intervalMin}-${intervalMax}`;
     config.outbounds[0].settings.fragment.packets = fragmentPackets;
     let balancerConfig = structuredClone(config);
-    config.routing.rules = buildXrayRoutingRules(proxySettings, chainProxy, false, false, false);
-    balancerConfig.routing.rules = buildXrayRoutingRules(proxySettings, chainProxy, true, false, false);
+    config.routing.rules = buildXrayRoutingRules(localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, chainProxy, false, false, false);
+    balancerConfig.routing.rules = buildXrayRoutingRules(localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, chainProxy, true, false, false);
     balancerConfig.observatory.probeInterval = `${bestVLESSTrojanInterval}s`;
     delete config.observatory;
     delete config.routing.balancers;
-    let protocolsNo = (vlessConfigs === 'true') + (trojanConfigs === 'true');
+    let protocolNo = (vlessConfigs ? 1 : 0) + (trojanConfigs ? 1 : 0);
     const Addresses = await getConfigAddresses(hostName, cleanIPs, enableIPv6);
     const domainAddressesRules = Addresses.filter(address => isDomain(address)).map(domain => `full:${domain}`);
     
-    for (let i = 0; i < protocolsNo; i++) {
+    for (let i = 0; i < protocolNo; i++) {
         for (let portIndex in ports.filter(port => defaultHttpsPorts.includes(port))) {
             let port = +ports[portIndex];
             for (let index in Addresses) {
@@ -3730,20 +3616,19 @@ async function getXrayFragmentConfigs(env, proxySettings, hostName) {
                 
                 fragConfig.remarks = remark;
                 if (chainProxy) {
-                    fragConfig.outbounds.unshift(chainProxy, { ...outbound});
+                    fragConfig.outbounds = [{...chainProxy}, { ...outbound}, ...fragConfig.outbounds];
                     isDomain(addr)
                         ? fragConfig.dns.servers[1].domains.push(`full:${addr}`)
                         : fragConfig.dns.servers.splice(1,1);
 
-                    outbound.tag = `prox-${proxyIndex}`;
+                    outbound.tag = `prox_${proxyIndex}`;
                     let proxyOut = structuredClone(chainProxy);
-                    proxyOut.tag = `chain-${proxyIndex}`;
-                    proxyOut.streamSettings.sockopt.dialerProxy = `prox-${proxyIndex}`;
-                    outbounds.push(proxyOut, outbound);
+                    proxyOut.tag = `out_${proxyIndex}`;
+                    proxyOut.streamSettings.sockopt.dialerProxy = `prox_${proxyIndex}`;
+                    outbounds.push({...proxyOut}, {...outbound});
                 } else {
-                    fragConfig.outbounds.unshift({ ...outbound});
-                    outbound.tag = `prox-${proxyIndex}`;
-                    outbounds.push(outbound);
+                    fragConfig.outbounds = [{ ...outbound}, ...fragConfig.outbounds];
+                    outbounds.push({...outbound});
                 }
     
                 Configs.push(fragConfig);
@@ -3754,11 +3639,11 @@ async function getXrayFragmentConfigs(env, proxySettings, hostName) {
     
     let bestPing = structuredClone(balancerConfig);
     bestPing.remarks = '💦 BPB F - Best Ping 💥';
-    bestPing.outbounds.unshift(...outbounds);
+    bestPing.outbounds = [...outbounds, ...bestPing.outbounds];
     
     if (chainProxy) {
-        bestPing.observatory.subjectSelector = ["chain"];
-        bestPing.routing.balancers[0].selector = ["chain"];
+        bestPing.observatory.subjectSelector = ["out"];
+        bestPing.routing.balancers[0].selector = ["out"];
         bestPing.dns.servers[1].domains = domainAddressesRules;
     }
 
@@ -3767,7 +3652,7 @@ async function getXrayFragmentConfigs(env, proxySettings, hostName) {
     bestFragment.outbounds.splice(0,1);
     bestFragValues.forEach( (fragLength, index) => {
         bestFragment.outbounds.push({
-            tag: `frag-${index + 1}`,
+            tag: `frag_${index + 1}`,
             protocol: "freedom",
             settings: {
                 fragment: {
@@ -3777,96 +3662,105 @@ async function getXrayFragmentConfigs(env, proxySettings, hostName) {
                 }
             },
             proxySettings: {
-                tag: chainProxy ? "chain" : "proxy"
+                tag: chainProxy ? "out" : "proxy"
             }
         });
     });
 
-    let bestFragmentOutbounds = structuredClone([outbounds[0], outbounds[1]]);  
+    let bestFragmentOutbounds = structuredClone([{...outbounds[0]}, {...outbounds[1]}]);  
     
     if (chainProxy) {
         bestFragmentOutbounds[0].streamSettings.sockopt.dialerProxy = 'proxy';
         delete bestFragmentOutbounds[1].streamSettings.sockopt.dialerProxy;
-        bestFragmentOutbounds[0].tag = 'chain';
+        bestFragmentOutbounds[0].tag = 'out';
         bestFragmentOutbounds[1].tag = 'proxy';
-        bestFragment.outbounds.unshift(bestFragmentOutbounds[0], bestFragmentOutbounds[1]);
+        bestFragment.outbounds = [bestFragmentOutbounds[0], bestFragmentOutbounds[1], ...bestFragment.outbounds];
         bestFragment.dns.servers[1].domains = domainAddressesRules;
     } else {
         delete bestFragmentOutbounds[0].streamSettings.sockopt.dialerProxy;
         bestFragmentOutbounds[0].tag = 'proxy';
-        bestFragment.outbounds.unshift(bestFragmentOutbounds[0]);
+        bestFragment.outbounds = [bestFragmentOutbounds[0], ...bestFragment.outbounds];
     }
 
     bestFragment.observatory.subjectSelector = ["frag"];
     bestFragment.routing.balancers[0].selector = ["frag"];
-    const workerLessConfig = await buildXrayWorkerLessConfig(proxySettings); 
+    const workerLessConfig = await buildWorkerLessConfig(remoteDNS, localDNS, lengthMin,  lengthMax,  intervalMin,  intervalMax, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443); 
     Configs.push(bestPing, bestFragment, workerLessConfig);
 
     return Configs;
 }
 
-async function getXrayWarpConfigs (proxySettings, warpConfigs, client) {
+async function getXrayWarpConfigs (env, client) {
+    let proxySettings = {};
+    let warpConfigs = [];
     let xrayWarpConfigs = [];
-    let config = structuredClone(xrayConfigTemp);
-    let xrayWarpBestPing = structuredClone(xrayConfigTemp);    
-    const { wowEndpoint, warpEndpoints, bestWarpInterval } = proxySettings;
-    const xrayWarpOutbounds = await buildWarpOutbounds(client, proxySettings, warpConfigs);
-    const xrayWoWOutbounds = await buildWoWOutbounds(client, proxySettings, warpConfigs);
-    const dnsObject = await buildXrayDNSObject(proxySettings, false, false, true);
+    let xrayWarpConfig = structuredClone(xrayConfigTemp);
+    let xrayWarpBestPing = structuredClone(xrayConfigTemp);
+    let xrayWoWConfigTemp = structuredClone(xrayConfigTemp);
     
-    config.dns = dnsObject;
-    config.routing.rules = buildXrayRoutingRules(proxySettings, false, false, false, true);
-    config.outbounds.splice(0,1);
-    delete config.observatory;
-    delete config.routing.balancers;
-    xrayWarpBestPing.remarks = client === 'nikang' ? '💦 Warp Pro Best Ping 🚀' : '💦 Warp Best Ping 🚀';
-    xrayWarpBestPing.dns = dnsObject;
-    xrayWarpBestPing.routing.rules = buildXrayRoutingRules(proxySettings, false, true, false, true);
+    try {
+        proxySettings = await env.bpb.get("proxySettings", {type: 'json'});
+        warpConfigs = await env.bpb.get('warpConfigs', {type: 'json'});
+    } catch (error) {
+        console.log(error);
+        throw new Error(`An error occurred while getting fragment configs - ${error}`);
+    }
+    
+    const { localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, wowEndpoint, warpEndpoints, bestWarpInterval } = proxySettings;
+    const xrayWarpOutbounds = await buildWarpOutbounds(env, client, proxySettings, warpConfigs);
+    const xrayWoWOutbounds = await buildWoWOutbounds(env, client, proxySettings, warpConfigs); 
+    
+    xrayWarpConfig.dns = await buildXrayDNSObject('1.1.1.1', localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn, false);
+    xrayWarpConfig.routing.rules = buildXrayRoutingRules(localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, false, false, false, true);
+    xrayWarpConfig.outbounds.splice(0,1);
+    xrayWarpConfig.routing.rules[xrayWarpConfig.routing.rules.length - 1].outboundTag = 'warp';
+    delete xrayWarpConfig.observatory;
+    delete xrayWarpConfig.routing.balancers;
+    xrayWarpBestPing.remarks = client === 'nikang' ? '💦 BPB - Warp Pro Best Ping 🚀' : '💦 BPB - Warp Best Ping 🚀';
+    xrayWarpBestPing.dns = await buildXrayDNSObject('1.1.1.1', localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn, false);
+    xrayWarpBestPing.routing.rules = buildXrayRoutingRules(localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, false, true, false, true);
     xrayWarpBestPing.outbounds.splice(0,1);
+    xrayWarpBestPing.routing.balancers[0].selector = ['warp'];
+    xrayWarpBestPing.observatory.subjectSelector = ['warp'];
     xrayWarpBestPing.observatory.probeInterval = `${bestWarpInterval}s`;
+    xrayWoWConfigTemp.dns = await buildXrayDNSObject('1.1.1.1', localDNS, blockAds, bypassIran, bypassChina, bypassLAN, blockPorn, false);
+    xrayWoWConfigTemp.routing.rules = buildXrayRoutingRules(localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina, blockUDP443, false, false, false, true);
+    xrayWoWConfigTemp.outbounds.splice(0,1);
+    delete xrayWoWConfigTemp.observatory;
+    delete xrayWoWConfigTemp.routing.balancers;
   
     xrayWarpOutbounds.forEach((outbound, index) => {
         xrayWarpConfigs.push({
-            ...config,
-            remarks: client === 'nikang' ? `💦 Warp Pro ${index + 1} 🇮🇷` : `💦 Warp ${index + 1} 🇮🇷`,
-            outbounds: [{...outbound, tag: 'proxy'}, ...config.outbounds]
+            ...xrayWarpConfig,
+            remarks: client === 'nikang' ? `💦 BPB - Warp Pro ${index + 1} 🇮🇷` : `💦 BPB - Warp ${index + 1} 🇮🇷`,
+            outbounds: [{...outbound, tag: 'warp'}, ...xrayWarpConfig.outbounds]
         });
     });
     
-    let proxyIndex = 1;
     xrayWoWOutbounds.forEach((outbound, index) => {
-        if (outbound.tag === 'chain') {
-            let xrayWoWConfig = structuredClone(config);
-            const chainOutbound = structuredClone(outbound);
-            const proxyOutbound = structuredClone(xrayWoWOutbounds[index + 1]);
-            xrayWoWConfig.remarks = client === 'nikang' ? `💦 WoW Pro ${proxyIndex} 🌍` : `💦 WoW ${proxyIndex} 🌍`;
-            xrayWoWConfig.routing.rules[xrayWoWConfig.routing.rules.length - 1].outboundTag = 'chain';
-            xrayWoWConfig.outbounds.unshift(chainOutbound, proxyOutbound);
+        if (outbound.tag.includes('warp-out')) {
+            let xrayWoWConfig = structuredClone(xrayWoWConfigTemp);
+            xrayWoWConfig.remarks = client === 'nikang' ? `💦 BPB - WoW Pro ${index/2 + 1} 🌍` : `💦 BPB - WoW ${index/2 + 1} 🌍`;
+            xrayWoWConfig.outbounds = [{...xrayWoWOutbounds[index]}, {...xrayWoWOutbounds[index + 1]}, ...xrayWoWConfig.outbounds];
+            xrayWoWConfig.routing.rules[xrayWoWConfig.routing.rules.length - 1].outboundTag = outbound.tag;
             xrayWarpConfigs.push(xrayWoWConfig);
-            outbound.tag = `chain-${proxyIndex}`;
-            outbound.streamSettings.sockopt.dialerProxy = `prox-${proxyIndex}`;
-        } else {
-            outbound.tag = `prox-${proxyIndex}`;
-            proxyIndex++;
         }
     });
 
     let xrayWoWBestPing = structuredClone(xrayWarpBestPing);
-    xrayWoWBestPing.remarks = client === 'nikang' ? '💦 WoW Pro Best Ping 🚀' : '💦 WoW Best Ping 🚀';
-    xrayWoWBestPing.routing.balancers[0].selector = ['chain'];
-    xrayWoWBestPing.observatory.subjectSelector = ['chain'];
-    xrayWarpBestPing.outbounds.unshift(...xrayWarpOutbounds);
-    xrayWoWBestPing.outbounds.unshift(...xrayWoWOutbounds);
+    xrayWoWBestPing.remarks = client === 'nikang' ? '💦 BPB - WoW Pro Best Ping 🚀' : '💦 BPB - WoW Best Ping 🚀';
+    xrayWoWBestPing.routing.balancers[0].selector = ['warp-out'];
+    xrayWoWBestPing.observatory.subjectSelector = ['warp-out'];
+    xrayWarpBestPing.outbounds = [...xrayWarpOutbounds, ...xrayWarpBestPing.outbounds];
+    xrayWoWBestPing.outbounds = [...xrayWoWOutbounds, ...xrayWoWBestPing.outbounds];
     xrayWarpConfigs.push(xrayWarpBestPing, xrayWoWBestPing);
 
     return xrayWarpConfigs;
 }
 
-async function buildClashDNS (proxySettings, isWarp) {
-    const { remoteDNS, localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina } = proxySettings;
-    const finalRemoteDNS = isWarp ? '1.1.1.1' : remoteDNS;
+async function buildClashDNS (remoteDNS, localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina) {
     const dohPattern = /^(?:[a-zA-Z]+:\/\/)?([^:\/\s?]+)/;
-    const DNSNameserver = finalRemoteDNS.match(dohPattern)[1];
+    const DNSNameserver = remoteDNS.match(dohPattern)[1];
     const isDOHDomain = isDomain(DNSNameserver);
     let clashLocalDNS = localDNS === 'localhost' ? 'system' : localDNS;
 
@@ -3878,7 +3772,7 @@ async function buildClashDNS (proxySettings, isWarp) {
         "enhanced-mode": "fake-ip",
         "fake-ip-range": "198.18.0.1/16",
         "nameserver": [
-            finalRemoteDNS
+            remoteDNS
         ],
         "proxy-server-nameserver": [clashLocalDNS]
     };
@@ -3894,11 +3788,10 @@ async function buildClashDNS (proxySettings, isWarp) {
     }
     
     let geosites = [];
-    bypassIran === 'true' && geosites.push('category-ir');
-    bypassChina === 'true' && geosites.push('cn');
-    bypassLAN === 'true' && geosites.push('private');
+    bypassIran && geosites.push('category-ir');
+    bypassChina && geosites.push('cn');
 
-    if (bypassIran === 'true' || bypassChina === 'true' || bypassLAN === 'true') { 
+    if (bypassIran || bypassChina) { 
         dns['nameserver-policy'] = {
             [`geosite:${geosites.join(',')}`]: [clashLocalDNS],
             'www.gstatic.com': [clashLocalDNS]
@@ -3908,27 +3801,23 @@ async function buildClashDNS (proxySettings, isWarp) {
     return dns;
 }
 
-function buildClashRoutingRules (proxySettings, isWarp) {
-    const { localDNS, blockAds, bypassIran, bypassChina, blockPorn, blockUDP443, bypassLAN } = proxySettings;
+function buildClashRoutingRules (localDNS, blockAds, bypassIran, bypassChina, blockPorn, blockUDP443, bypassLAN, isWarp) {
     let rules = [];
 
-    localDNS !== 'localhost' && rules.push(`AND,((IP-CIDR,${localDNS}/32),(DST-PORT,53)),DIRECT`);
-    bypassLAN === 'true' && rules.push('GEOSITE,private,DIRECT');
-    bypassIran === 'true' && rules.push('GEOSITE,category-ir,DIRECT');
-    bypassChina === 'true' && rules.push('GEOSITE,cn,DIRECT');
-    bypassLAN === 'true' && rules.push('GEOIP,private,DIRECT,no-resolve');
-    bypassIran === 'true' && rules.push('GEOIP,ir,DIRECT,no-resolve');
-    bypassChina === 'true' && rules.push('GEOIP,cn,DIRECT,no-resolve');
-    blockUDP443 === 'true' && isWarp && rules.push('AND,((NETWORK,udp),(DST-PORT,443)),REJECT');
+    (localDNS !== 'localhost') && rules.push(`AND,((IP-CIDR,${localDNS}/32),(DST-PORT,53)),DIRECT`);
+    bypassLAN && rules.push('GEOSITE,private,DIRECT', 'GEOIP,private,DIRECT,no-resolve');
+    bypassIran && rules.push('GEOSITE,category-ir,DIRECT', 'GEOIP,ir,DIRECT,no-resolve');
+    bypassChina && rules.push('GEOSITE,cn,DIRECT', 'GEOIP,cn,DIRECT,no-resolve');
+    blockUDP443 && isWarp && rules.push('AND,((NETWORK,udp),(DST-PORT,443)),REJECT');
     !isWarp && rules.push('NETWORK,udp,REJECT');
-    blockAds === 'true' && rules.push('GEOSITE,category-ads-all,REJECT', 'GEOSITE,category-ads-ir,REJECT');
-    blockPorn === 'true' && rules.push('GEOSITE,category-porn,REJECT');
+    blockAds && rules.push('GEOSITE,category-ads-all,REJECT', 'GEOSITE,category-ads-ir,REJECT');
+    blockPorn && rules.push('GEOSITE,category-porn,REJECT');
     rules.push('MATCH,✅ Selector');
 
     return rules;
 }
 
-function buildClashVLESSOutbound (remark, address, port, uuid, host, sni, path, allowInsecure) {
+function buildClashVLESSOutbound (remark, address, port, uuid, host, sni, path) {
     const tls = defaultHttpsPorts.includes(port) ? true : false;
     let outbound = {
         "name": remark,
@@ -3949,17 +3838,16 @@ function buildClashVLESSOutbound (remark, address, port, uuid, host, sni, path, 
 
     if (tls) {
         Object.assign(outbound, {
-            "servername": sni,
+            "servername": randomUpperCase(sni),
             "alpn": ["h2", "http/1.1"],
-            "client-fingerprint": "random",
-            "skip-cert-verify": allowInsecure
+            "client-fingerprint": "random"
         });
     }
 
     return outbound;
 }
 
-function buildClashTrojanOutbound (remark, address, port, password, host, sni, path, allowInsecure) {
+function buildClashTrojanOutbound (remark, address, port, password, host, sni, path) {
     return {
         "name": remark,
         "type": "trojan",
@@ -3974,10 +3862,9 @@ function buildClashTrojanOutbound (remark, address, port, password, host, sni, p
             "max-early-data": 2560,
             "early-data-header-name": "Sec-WebSocket-Protocol"
         },
-        "sni": sni,
+        "sni": randomUpperCase(sni),
         "alpn": ["h2", "http/1.1"],
-        "client-fingerprint": "random",
-        "skip-cert-verify": allowInsecure
+        "client-fingerprint": "random"
     };
 }
 
@@ -4086,39 +3973,32 @@ function buildClashChainOutbound(chainProxyParams) {
     return chainOutbound;
 }
 
-async function getClashWarpConfig(proxySettings, warpConfigs) {
-    let config = structuredClone(clashConfigTemp);
-    config.dns = await buildClashDNS(proxySettings, true);
-    config.rules = buildClashRoutingRules(proxySettings, true);
-    config['proxy-groups'][0].proxies = ['💦 Warp Best Ping 🚀', '💦 WoW Best Ping 🚀'];
-    config['proxy-groups'][1].name = '💦 Warp Best Ping 🚀';
-    config['proxy-groups'][1].interval = +proxySettings.bestWarpInterval;
-    config['proxy-groups'].splice(2, 0, structuredClone(config['proxy-groups'][1]));
-    config['proxy-groups'][2].name = '💦 WoW Best Ping 🚀';
-    const clashWarpOutbounds = await buildWarpOutbounds('clash', proxySettings, warpConfigs);
-    const clashWOWpOutbounds = await buildWoWOutbounds('clash', proxySettings, warpConfigs);
-    config.proxies = [...clashWarpOutbounds, ...clashWOWpOutbounds];
-    clashWarpOutbounds.forEach(outbound => {
-        config['proxy-groups'][0].proxies.push(outbound["name"]);
-        config['proxy-groups'][1].proxies.push(outbound["name"]);
-
-    });
-    
-    clashWOWpOutbounds.forEach(outbound => {
-        outbound["name"].includes('WoW') && config['proxy-groups'][0].proxies.push(outbound["name"]);
-        outbound["name"].includes('WoW') && config['proxy-groups'][2].proxies.push(outbound["name"]);
-    });
-    
-    return config;
-}
-
-async function getClashNormalConfig (env, proxySettings, hostName) {
+async function getClashConfig (env, hostName, isWarp) {
+    let proxySettings = {};
+    let warpConfigs = [];
     let remark, path;
     let chainProxyOutbound;
+
+    try {
+        proxySettings = await env.bpb.get("proxySettings", {type: 'json'});
+        warpConfigs = await env.bpb.get('warpConfigs', {type: 'json'});
+    } catch (error) {
+        console.log(error);
+        throw new Error(`An error occurred while getting sing-box configs - ${error}`);
+    }
+
     const { 
+        remoteDNS,  
+        localDNS, 
         cleanIPs, 
         proxyIP, 
         ports, 
+        blockAds, 
+        bypassIran, 
+        blockPorn, 
+        bypassLAN, 
+        bypassChina, 
+        blockUDP443, 
         vlessConfigs, 
         trojanConfigs, 
         outProxy, 
@@ -4127,20 +4007,18 @@ async function getClashNormalConfig (env, proxySettings, hostName) {
         customCdnHost,
         customCdnSni,
         bestVLESSTrojanInterval,
+        bestWarpInterval,
         enableIPv6
     } = proxySettings; 
 
     let config = structuredClone(clashConfigTemp);
-    config.dns = await buildClashDNS(proxySettings, false);
-    config.rules = buildClashRoutingRules(proxySettings, false);
-    config['proxy-groups'][0].proxies = ['💦 Best Ping 💥'];
-    config['proxy-groups'][1].name = '💦 Best Ping 💥';
-    config['proxy-groups'][1].interval = +bestVLESSTrojanInterval;
+    config.dns = await buildClashDNS(isWarp ? '1.1.1.1' : remoteDNS, localDNS, blockAds, bypassIran, blockPorn, bypassLAN, bypassChina);
+    config.rules = buildClashRoutingRules(localDNS, blockAds, bypassIran, bypassChina, blockPorn, blockUDP443, bypassLAN, isWarp);
     const Addresses = await getConfigAddresses(hostName, cleanIPs, enableIPv6);
     const customCdnAddresses = customCdnAddrs ? customCdnAddrs.split(',') : [];
     const totalAddresses = [...Addresses, ...customCdnAddresses];
 
-    if (outProxy) {
+    if (outProxy && !isWarp) {
         const proxyParams = JSON.parse(outProxyParams);        
         try {
             chainProxyOutbound = buildClashChainOutbound(proxyParams);
@@ -4155,16 +4033,42 @@ async function getClashNormalConfig (env, proxySettings, hostName) {
         }
     }
 
-    let protocolsNo = (vlessConfigs === 'true') + (trojanConfigs === 'true');
+    if (isWarp) {
+        config['proxy-groups'][0].proxies = ['💦 Warp Best Ping 🚀', '💦 WoW Best Ping 🚀'];
+        config['proxy-groups'][1].name = '💦 Warp Best Ping 🚀';
+        config['proxy-groups'][1].interval = +bestWarpInterval;
+        config['proxy-groups'].splice(2, 0, structuredClone(config['proxy-groups'][1]));
+        config['proxy-groups'][2].name = '💦 WoW Best Ping 🚀';
+        const clashWarpOutbounds = await buildWarpOutbounds(env, 'clash', proxySettings, warpConfigs);
+        const clashWOWpOutbounds = await buildWoWOutbounds(env, 'clash', proxySettings, warpConfigs);
+        config.proxies = [...clashWarpOutbounds, ...clashWOWpOutbounds];
+        clashWarpOutbounds.forEach(outbound => {
+            config['proxy-groups'][0].proxies.push(outbound["name"]);
+            config['proxy-groups'][1].proxies.push(outbound["name"]);
+
+        });
+        
+        clashWOWpOutbounds.forEach(outbound => {
+            outbound["name"].includes('WoW') && config['proxy-groups'][0].proxies.push(outbound["name"]);
+            outbound["name"].includes('WoW') && config['proxy-groups'][2].proxies.push(outbound["name"]);
+        });
+
+    } else {
+        config['proxy-groups'][0].proxies = ['💦 Best Ping 💥'];
+        config['proxy-groups'][1].name = '💦 Best Ping 💥';
+        config['proxy-groups'][1].interval = +bestVLESSTrojanInterval;
+    }
+
+    let protocolsNo = (vlessConfigs ? 1 : 0) + (trojanConfigs ? 1 : 0);
     let proxyIndex = 1;
 
-    for (let i = 0; i < protocolsNo; i++) {
+    for (let i = 0; i < protocolsNo && !isWarp; i++) {
         ports.forEach(port => {
             totalAddresses.forEach((addr, index) => {
                 let VLESSOutbound, TrojanOutbound;
                 const isCustomAddr = index > Addresses.length - 1;
                 const configType = isCustomAddr ? 'C' : '';
-                const sni = isCustomAddr ? customCdnSni : randomUpperCase(hostName);
+                const sni = isCustomAddr ? customCdnSni : hostName;
                 const host = isCustomAddr ? customCdnHost : hostName;
 
                 if (vlessConfigs && i === 0) {
@@ -4178,8 +4082,7 @@ async function getClashNormalConfig (env, proxySettings, hostName) {
                         userID, 
                         host,
                         sni, 
-                        path,
-                        isCustomAddr
+                        path
                     );
                     config.proxies.push(VLESSOutbound);
                     config['proxy-groups'][0].proxies.push(remark);
@@ -4197,8 +4100,7 @@ async function getClashNormalConfig (env, proxySettings, hostName) {
                         trojanPassword, 
                         host,
                         sni, 
-                        path,
-                        isCustomAddr
+                        path
                     );
                     config.proxies.push(TrojanOutbound);
                     config['proxy-groups'][0].proxies.push(remark);
@@ -4220,29 +4122,15 @@ async function getClashNormalConfig (env, proxySettings, hostName) {
     return config;
 }
 
-function buildSingboxDNS (proxySettings, isChain, isWarp) {
-    const { remoteDNS, localDNS, blockAds, bypassIran, bypassChina, blockPorn } = proxySettings;
-    const servers = [
-        {
-            address: isWarp ? '1.1.1.1' : remoteDNS,
-            address_resolver: "dns-direct",
-            strategy: "prefer_ipv4",
-            detour: isChain ? 'proxy-1' : "proxy",
-            tag: "dns-remote"
-        },
-        {
-            address: localDNS === 'localhost' ? 'local' : localDNS,
-            strategy: "prefer_ipv4",
-            detour: "direct",
-            tag: "dns-direct"
-        },
-        {
-            address: "rcode://success",
-            tag: "dns-block"
-        }
-    ];
-
+function buildSingboxDNSRules (blockAds, bypassIran, bypassChina, blockPorn, outboundDomains) {
     let rules = [
+        {
+            domain: [
+                "www.gstatic.com",
+                ...outboundDomains
+            ],
+            server: "dns-direct"
+        },
         {
             outbound: "any",
             server: "dns-direct"
@@ -4254,9 +4142,9 @@ function buildSingboxDNS (proxySettings, isChain, isWarp) {
         server: "dns-direct"
     }
     
-    bypassIran === 'true' && bypassRules.rule_set.push("geosite-ir");
-    bypassChina === 'true' && bypassRules.rule_set.push("geosite-cn");
-    (bypassIran === 'true' || bypassChina === 'true') && rules.push(bypassRules);
+    bypassIran && bypassRules.rule_set.push("geosite-ir");
+    bypassChina && bypassRules.rule_set.push("geosite-cn");
+    (bypassIran || bypassChina) && rules.push(bypassRules);
 
     let blockRules = {
         disable_cache: true,
@@ -4268,15 +4156,14 @@ function buildSingboxDNS (proxySettings, isChain, isWarp) {
         server: "dns-block"
     };
 
-    blockAds === 'true' && blockRules.rule_set.push("geosite-category-ads-all");
-    blockPorn === 'true' && blockRules.rule_set.push("geosite-nsfw");
+    blockAds && blockRules.rule_set.push("geosite-category-ads-all");
+    blockPorn && blockRules.rule_set.push("geosite-nsfw");
     rules.push(blockRules);
 
-    return {servers: servers, rules: rules};
+    return rules;
 }
 
-function buildSingboxRoutingRules (proxySettings, isWarp) {
-    const { blockAds, bypassIran, bypassChina, blockPorn, blockUDP443, bypassLAN } = proxySettings;
+function buildSingboxRoutingRules (blockAds, bypassIran, bypassChina, blockPorn, blockUDP443, bypassLAN, isWarp) {
     let rules = [
         {
             inbound: "dns-in",
@@ -4327,7 +4214,7 @@ function buildSingboxRoutingRules (proxySettings, isWarp) {
         }
     ];
 
-    if (bypassIran === 'true') {
+    if (bypassIran) {
         rules.push({
             rule_set: ["geosite-ir", "geoip-ir"],
             outbound: "direct"
@@ -4349,7 +4236,7 @@ function buildSingboxRoutingRules (proxySettings, isWarp) {
         });
     }
 
-    if (bypassChina === 'true') {
+    if (bypassChina) {
         rules.push({
             rule_set: ["geosite-cn", "geoip-cn"],
             outbound: "direct"
@@ -4371,7 +4258,7 @@ function buildSingboxRoutingRules (proxySettings, isWarp) {
         });
     }
     
-    bypassLAN === 'true' && rules.push({
+    bypassLAN && rules.push({
         ip_is_private: true,
         outbound: "direct"
     });
@@ -4381,7 +4268,7 @@ function buildSingboxRoutingRules (proxySettings, isWarp) {
         outbound: "block"
     });
 
-    blockUDP443 === 'true' && isWarp && rules.push({
+    blockUDP443 && isWarp && rules.push({
         network: "udp",
         port: 443,
         protocol: "quic",
@@ -4399,7 +4286,7 @@ function buildSingboxRoutingRules (proxySettings, isWarp) {
         outbound: "block"
     };
     
-    if (blockAds === 'true') { 
+    if (blockAds) { 
         blockRuleSet.rule_set.push("geosite-category-ads-all");
         ruleSet.push({
             type: "remote",
@@ -4410,7 +4297,7 @@ function buildSingboxRoutingRules (proxySettings, isWarp) {
         });
     }
 
-    if (blockPorn === 'true') { 
+    if (blockPorn) { 
         blockRuleSet.rule_set.push("geosite-nsfw");
         ruleSet.push({
             type: "remote",
@@ -4431,7 +4318,7 @@ function buildSingboxRoutingRules (proxySettings, isWarp) {
     return {rules: rules, rule_set: ruleSet};
 }
 
-function buildSingboxVLESSOutbound (remark, address, port, uuid, host, sni, path, allowInsecure, isFragment, lengthMin, lengthMax, intervalMin, intervalMax) {
+function buildSingboxVLESSOutbound (remark, address, port, uuid, host, sni, path, isFragment, lengthMin, lengthMax, intervalMin, intervalMax) {
     const tls = defaultHttpsPorts.includes(port) ? true : false;
     let outbound =  {
         type: "vless",
@@ -4441,8 +4328,8 @@ function buildSingboxVLESSOutbound (remark, address, port, uuid, host, sni, path
         tls: {
             alpn: "http/1.1",
             enabled: true,
-            insecure: allowInsecure,
-            server_name: sni,
+            insecure: false,
+            server_name: randomUpperCase(sni),
             utls: {
                 enabled: true,
                 fingerprint: "randomized"
@@ -4470,7 +4357,7 @@ function buildSingboxVLESSOutbound (remark, address, port, uuid, host, sni, path
     return outbound;
 }
 
-function buildSingboxTrojanOutbound (remark, address, port, password, host, sni, path, allowInsecure, isFragment, lengthMin, lengthMax, intervalMin, intervalMax) {
+function buildSingboxTrojanOutbound (remark, address, port, password, host, sni, path, isFragment, lengthMin, lengthMax, intervalMin, intervalMax) {
     const tls = defaultHttpsPorts.includes(port) ? true : false;
     let outbound = {
         type: "trojan",
@@ -4480,8 +4367,8 @@ function buildSingboxTrojanOutbound (remark, address, port, password, host, sni,
         tls: {
             alpn: "http/1.1",
             enabled: true,
-            insecure: allowInsecure,
-            server_name: sni,
+            insecure: false,
+            server_name: randomUpperCase(sni),
             utls: {
                 enabled: true,
                 fingerprint: "randomized"
@@ -4624,48 +4511,23 @@ function buildSingboxChainOutbound(chainProxyParams) {
     return chainOutbound;
 }
 
-async function getSingboxWarpConfig(proxySettings, warpConfigs, client) {
-    let config = structuredClone(singboxConfigTemp);
-    const dnsObject = buildSingboxDNS(proxySettings, false, true);
-    config.dns.servers = dnsObject.servers;
-    config.dns.rules = dnsObject.rules;
-    const {rules, rule_set} = buildSingboxRoutingRules(proxySettings, true);
-    config.route.rules = rules;
-    config.route.rule_set = rule_set;
-
-    const warpOutbounds = await buildWarpOutbounds(client, proxySettings, warpConfigs);
-    const WOWOutbounds = await buildWoWOutbounds(client, proxySettings, warpConfigs);
-    config.outbounds[0].outbounds = client === 'hiddify'
-        ? ["💦 Warp Pro Best Ping 🚀", "💦 WoW Pro Best Ping 🚀"]
-        : ["💦 Warp Best Ping 🚀", "💦 WoW Best Ping 🚀"];
-    config.outbounds.splice(2, 0, structuredClone(config.outbounds[1]));
-    config.outbounds[1].tag = client === 'hiddify' 
-        ? "💦 Warp Pro Best Ping 🚀"
-        : "💦 Warp Best Ping 🚀";
-    config.outbounds[2].tag = client === 'hiddify'
-        ? "💦 WoW Pro Best Ping 🚀"
-        : "💦 WoW Best Ping 🚀";
-    config.outbounds.push(...warpOutbounds, ...WOWOutbounds);
-    warpOutbounds.forEach(outbound => {
-        config.outbounds[0].outbounds.push(outbound.tag);
-        config.outbounds[1].outbounds.push(outbound.tag);
-    });
-
-    WOWOutbounds.forEach(outbound => {
-        if (outbound.tag.includes('WoW')) {
-            config.outbounds[0].outbounds.push(outbound.tag);
-            config.outbounds[2].outbounds.push(outbound.tag);
-        }
-    });
-
-    config.outbounds[1].interval = `${proxySettings.bestWarpInterval}s`;
-    config.outbounds[2].interval = `${proxySettings.bestWarpInterval}s`;
-    return config;
-}
-
-async function getSingboxNormalConfig(env, proxySettings, hostName, client, isFragment) {
+async function getSingboxConfig (env, hostName, client, isWarp, isFragment) {
+    let warpConfigs = [];
+    let proxySettings = {};
+    let outboundDomains = [];
     let chainProxyOutbound;
+    
+    try {
+        proxySettings = await env.bpb.get("proxySettings", {type: 'json'});
+        warpConfigs = await env.bpb.get('warpConfigs', {type: 'json'});
+    } catch (error) {
+        console.log(error);
+        throw new Error(`An error occurred while getting sing-box configs - ${error}`);
+    }
+
     const { 
+        remoteDNS,  
+        localDNS, 
         cleanIPs, 
         proxyIP, 
         ports, 
@@ -4675,21 +4537,30 @@ async function getSingboxNormalConfig(env, proxySettings, hostName, client, isFr
         lengthMax, 
         intervalMin, 
         intervalMax, 
+        blockAds, 
+        bypassIran, 
+        bypassChina, 
+        blockPorn, 
+        blockUDP443, 
+        bypassLAN, 
         outProxy, 
         outProxyParams,
         customCdnAddrs,
         customCdnHost,
         customCdnSni,
         bestVLESSTrojanInterval,
+        bestWarpInterval,
         enableIPv6
     } = proxySettings;
 
     let config = structuredClone(singboxConfigTemp);
     
-    if (outProxy) {
+    if (outProxy && !isWarp) {
         const proxyParams = JSON.parse(outProxyParams);      
         try {
             chainProxyOutbound = buildSingboxChainOutbound(proxyParams);
+            isDomain(chainProxyOutbound.server) && outboundDomains.push(chainProxyOutbound.server);
+            config.dns.servers[0].detour = "proxy-1";
         } catch (error) {
             console.log('An error occured while parsing chain proxy: ', error);
             chainProxyOutbound = undefined;
@@ -4706,16 +4577,54 @@ async function getSingboxNormalConfig(env, proxySettings, hostName, client, isFr
     const Addresses = await getConfigAddresses(hostName, cleanIPs, enableIPv6);
     const customCdnAddresses = customCdnAddrs ? customCdnAddrs.split(',') : [];
     const totalAddresses = [...Addresses, ...customCdnAddresses];
-    let protocolsNo = (vlessConfigs === 'true') + (trojanConfigs === 'true');
+    config.dns.servers[0].address = remoteDNS;
+    config.dns.servers[1].address = localDNS === 'localhost' ? 'local' : localDNS;
+
+    if (isWarp) {
+        const warpOutbounds = await buildWarpOutbounds(env, client, proxySettings, warpConfigs);
+        const WOWOutbounds = await buildWoWOutbounds(env, client, proxySettings, warpConfigs);
+        config.dns.servers[0].address = '1.1.1.1';
+        config.outbounds[0].outbounds = client === 'hiddify'
+            ? ["💦 Warp Pro Best Ping 🚀", "💦 WoW Pro Best Ping 🚀"]
+            : ["💦 Warp Best Ping 🚀", "💦 WoW Best Ping 🚀"];
+        config.outbounds.splice(2, 0, structuredClone(config.outbounds[1]));
+        config.outbounds[1].tag = client === 'hiddify' 
+            ? "💦 Warp Pro Best Ping 🚀"
+            : "💦 Warp Best Ping 🚀";
+        config.outbounds[2].tag = client === 'hiddify'
+            ? "💦 WoW Pro Best Ping 🚀"
+            : "💦 WoW Best Ping 🚀";
+        config.outbounds.push(...warpOutbounds, ...WOWOutbounds);
+        warpOutbounds.forEach(outbound => {
+            config.outbounds[0].outbounds.push(outbound.tag);
+            config.outbounds[1].outbounds.push(outbound.tag);
+            isDomain(outbound.server) && outboundDomains.push(outbound.server);
+        });
+
+        WOWOutbounds.forEach(outbound => {
+            if (outbound.tag.includes('WoW')) {
+                config.outbounds[0].outbounds.push(outbound.tag);
+                config.outbounds[2].outbounds.push(outbound.tag);
+            }
+            isDomain(outbound.server) && outboundDomains.push(outbound.server);
+        });
+
+        config.outbounds[1].interval = `${bestWarpInterval}s`;
+        config.outbounds[2].interval = `${bestWarpInterval}s`;
+    } else {
+        config.outbounds[1].interval = `${bestVLESSTrojanInterval}s`;
+    }
+
+    let protocolsNo = (vlessConfigs ? 1 : 0) + (trojanConfigs ? 1 : 0);
     let proxyIndex = 1;
 
-    for (let i = 0; i < protocolsNo; i++) {
+    for (let i = 0; i < protocolsNo && !isWarp; i++) {
         ports.filter(port => (defaultHttpsPorts.includes(port) && isFragment) || !isFragment).forEach(port => {
             totalAddresses.forEach((addr, index) => {
                 let VLESSOutbound, TrojanOutbound;
                 const isCustomAddr = index > Addresses.length - 1;
                 const configType = isCustomAddr ? 'C' : isFragment ? 'F' : '';
-                const sni = isCustomAddr ? customCdnSni : randomUpperCase(hostName);
+                const sni = isCustomAddr ? customCdnSni : hostName;
                 const host = isCustomAddr ? customCdnHost : hostName;
          
                 if (vlessConfigs && i === 0) {
@@ -4728,8 +4637,7 @@ async function getSingboxNormalConfig(env, proxySettings, hostName, client, isFr
                         userID, 
                         host,
                         sni, 
-                        path,
-                        isCustomAddr, 
+                        path, 
                         isFragment, 
                         lengthMin, 
                         lengthMax, 
@@ -4750,7 +4658,6 @@ async function getSingboxNormalConfig(env, proxySettings, hostName, client, isFr
                         host,
                         sni, 
                         path,
-                        isCustomAddr,
                         isFragment, 
                         lengthMin, 
                         lengthMax, 
@@ -4769,26 +4676,34 @@ async function getSingboxNormalConfig(env, proxySettings, hostName, client, isFr
                 
                 config.outbounds[0].outbounds.push(remark);
                 config.outbounds[1].outbounds.push(remark);
+                isDomain(addr) && outboundDomains.push(addr);
                 proxyIndex++;
             });
         });
     }
 
-    const dnsObject = buildSingboxDNS(proxySettings, chainProxyOutbound, false);
-    config.dns.servers = dnsObject.servers;
-    config.dns.rules = dnsObject.rules;
-    const {rules, rule_set} = buildSingboxRoutingRules(proxySettings, false);
+    config.dns.rules = buildSingboxDNSRules(blockAds, bypassIran, bypassChina, blockPorn, new Set(outboundDomains));
+    const {rules, rule_set} = buildSingboxRoutingRules (blockAds, bypassIran, bypassChina, blockPorn, blockUDP443, bypassLAN, isWarp);
     config.route.rules = rules;
     config.route.rule_set = rule_set;
 
     return config;
 }
 
-async function getNormalConfigs(proxySettings, hostName, client) {
+async function getNormalConfigs(env, hostName, client) {
+    let proxySettings = {};
     let vlessConfs = '';
     let trojanConfs = '';
     let chainProxy = '';
     let proxyIndex = 1;
+
+    try {
+        proxySettings = await env.bpb.get("proxySettings", {type: 'json'});
+    } catch (error) {
+        console.log(error);
+        throw new Error(`An error occurred while getting normal configs - ${error}`);
+    }
+
     const { cleanIPs, proxyIP, ports, vlessConfigs, trojanConfigs , outProxy, customCdnAddrs, customCdnHost, customCdnSni, enableIPv6} = proxySettings;
     const Addresses = await getConfigAddresses(hostName, cleanIPs, enableIPv6);
     const customCdnAddresses = customCdnAddrs ? customCdnAddrs.split(',') : [];
@@ -4961,7 +4876,8 @@ const xrayConfigTemp = {
         probeURL: "https://www.gstatic.com/generate_204",
         subjectSelector: ["prox"],
         EnableConcurrency: true,
-    }
+    },
+    stats: {},
 };
 
 const singboxConfigTemp = {
@@ -4970,7 +4886,25 @@ const singboxConfigTemp = {
         timestamp: true
     },
     dns: {
-        servers: [],
+        servers: [
+            {
+                address: "",
+                address_resolver: "dns-direct",
+                strategy: "prefer_ipv4",
+                detour: "proxy",
+                tag: "dns-remote"
+            },
+            {
+                address: "",
+                strategy: "prefer_ipv4",
+                detour: "direct",
+                tag: "dns-direct"
+            },
+            {
+                address: "rcode://success",
+                tag: "dns-block"
+            }
+        ],
         rules: [],
         independent_cache: true
     },
